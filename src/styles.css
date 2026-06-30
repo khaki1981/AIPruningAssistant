@@ -374,11 +374,27 @@ textarea:focus {
   transform: translateY(-1px);
 }
 
+.diagnose-button:disabled {
+  cursor: progress;
+  opacity: 0.76;
+  transform: none;
+}
+
 .form-note {
   margin: 12px 0 0;
   color: var(--muted);
   font-size: 0.72rem;
   text-align: center;
+}
+
+.error-message {
+  margin: 0 0 14px;
+  padding: 13px 15px;
+  border: 1px solid #d8a59a;
+  color: #8a2f25;
+  background: #fff3f0;
+  font-size: 0.86rem;
+  line-height: 1.7;
 }
 
 .guide-card {
@@ -490,6 +506,44 @@ textarea:focus {
   line-height: 1.8;
 }
 
+.loading-panel,
+.empty-result {
+  display: flex;
+  min-height: 128px;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  background: rgba(119, 145, 123, 0.06);
+  text-align: center;
+}
+
+.loading-panel p,
+.empty-result p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.8;
+}
+
+.loading-spinner {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(40, 82, 59, 0.18);
+  border-top-color: var(--forest);
+  border-radius: 50%;
+  animation: spin 860ms linear infinite;
+}
+
+.diagnosis-text {
+  color: #415047;
+  font-size: 0.9rem;
+  line-height: 1.9;
+  white-space: pre-wrap;
+}
+
 .diagnosis-list article {
   display: grid;
   grid-template-columns: 44px 1fr;
@@ -597,5 +651,11 @@ footer span {
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
