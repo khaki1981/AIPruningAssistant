@@ -10,3 +10,4 @@ Thumbs.db
 *.log
 *.tsbuildinfo
 .edge-test-profile/
+claude-design-reference/
