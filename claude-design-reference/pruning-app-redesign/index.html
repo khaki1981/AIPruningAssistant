@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="./_ds/ai-pruning-assistant-design-system-a95f892d-b70c-4575-9bf0-83f755588cd8/tokens/fonts.css">
+<link rel="stylesheet" href="./_ds/ai-pruning-assistant-design-system-a95f892d-b70c-4575-9bf0-83f755588cd8/tokens/colors.css">
+<link rel="stylesheet" href="./_ds/ai-pruning-assistant-design-system-a95f892d-b70c-4575-9bf0-83f755588cd8/tokens/typography.css">
+<link rel="stylesheet" href="./_ds/ai-pruning-assistant-design-system-a95f892d-b70c-4575-9bf0-83f755588cd8/tokens/spacing.css">
+<link rel="stylesheet" href="./_ds/ai-pruning-assistant-design-system-a95f892d-b70c-4575-9bf0-83f755588cd8/tokens/radii-shadows.css">
+<link rel="stylesheet" href="./_ds/ai-pruning-assistant-design-system-a95f892d-b70c-4575-9bf0-83f755588cd8/tokens/base.css">
+<link rel="stylesheet" href="./_ds/ai-pruning-assistant-design-system-a95f892d-b70c-4575-9bf0-83f755588cd8/styles.css">
+<script src="./_ds/ai-pruning-assistant-design-system-a95f892d-b70c-4575-9bf0-83f755588cd8/_ds_bundle.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="./image-slot.js"></script>
+<style>
+  body { margin: 0; background: #e5e1d3; font-family: "Noto Sans JP", system-ui, sans-serif; }
+  .scr::-webkit-scrollbar { width: 0; height: 0; }
+  .scr { scrollbar-width: none; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px;">
+  <div style="width:392px;height:812px;position:relative;background:var(--color-bg);border-radius:40px;overflow:hidden;box-shadow:0 30px 70px rgba(27,38,32,.28);border:9px solid #12160f;display:flex;flex-direction:column;">
+
+    <!-- ===== status bar ===== -->
+    <div style="height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:var(--color-surface);font-size:13px;font-weight:600;color:var(--color-text-strong);">
+      <span style="font-variant-numeric:tabular-nums;">9:41</span>
+      <span style="display:inline-flex;gap:6px;align-items:center;">
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="signal" size="15" hint-size="15px,15px"></x-import>
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="wifi" size="15" hint-size="15px,15px"></x-import>
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="battery-full" size="17" hint-size="17px,17px"></x-import>
+      </span>
+    </div>
+
+    <!-- ===== header ===== -->
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <header style="flex:0 0 auto;display:flex;align-items:center;gap:11px;height:60px;padding:0 8px 0 16px;background:var(--color-surface);border-bottom:1px solid var(--color-border);">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:999px;background:var(--color-primary);color:#fff;">
+          <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="scissors" size="20" hint-size="20px,20px"></x-import>
+        </span>
+        <span style="flex:1;font-family:var(--font-serif);font-weight:700;font-size:19px;color:var(--color-text-strong);">剪定アシスタント</span>
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.IconButton" icon="layout-grid" label="画面マップ" on-click="{{ goOverview }}" hint-size="44px,44px"></x-import>
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.IconButton" icon="bell" label="お知らせ" on-click="{{ noop }}" hint-size="44px,44px"></x-import>
+      </header>
+    </sc-if>
+    <sc-if value="{{ showBack }}" hint-placeholder-val="{{ false }}">
+      <header style="flex:0 0 auto;display:flex;align-items:center;gap:6px;height:60px;padding:0 8px;background:var(--color-surface);border-bottom:1px solid var(--color-border);">
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.IconButton" icon="chevron-left" label="戻る" on-click="{{ back }}" hint-size="44px,44px"></x-import>
+        <h1 style="flex:1;margin:0;text-align:center;font-family:var(--font-sans);font-weight:700;font-size:17px;color:var(--color-text-strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ headerTitle }}</h1>
+        <div style="width:44px;flex:0 0 auto;"></div>
+      </header>
+    </sc-if>
+
+    <!-- ===== scroll area ===== -->
+    <main class="scr" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+
+    <!-- ======================= OVERVIEW / FLOW MAP ======================= -->
+    <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:18px 16px 40px;display:flex;flex-direction:column;gap:20px;">
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.PageTitle" eyebrow="SCREEN MAP" title="画面マップと導線" description="主要な2つの入口から診断へ進みます。各カードから画面を確認できます。" hint-size="100%,120px"></x-import>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <span style="font-family:var(--font-sans);font-weight:700;font-size:12px;letter-spacing:.08em;color:var(--color-secondary);">2つの入口</span>
+          <div style="display:flex;align-items:stretch;gap:10px;">
+            <div onClick="{{ goSearch }}" style="flex:1;cursor:pointer;background:var(--color-surface);border:1px solid var(--color-border);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--card-shadow);">
+              <span style="display:inline-flex;width:38px;height:38px;border-radius:10px;background:var(--green-50);color:var(--color-primary);align-items:center;justify-content:center;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="search" size="20" hint-size="20px,20px"></x-import></span>
+              <strong style="font-size:14px;color:var(--color-text-strong);">植物名で調べる</strong>
+              <span style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;">名前・種類から剪定方法を確認</span>
+            </div>
+            <div onClick="{{ goUpload }}" style="flex:1;cursor:pointer;background:var(--color-primary-strong);color:#fff;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow-md);">
+              <span style="display:inline-flex;width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.16);color:#fff;align-items:center;justify-content:center;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="sparkles" size="20" hint-size="20px,20px"></x-import></span>
+              <strong style="font-size:14px;">写真でAI診断</strong>
+              <span style="font-size:12px;color:rgba(255,255,255,.82);line-height:1.6;">撮影→条件選択→AIが提案</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <span style="font-family:var(--font-sans);font-weight:700;font-size:12px;letter-spacing:.08em;color:var(--color-secondary);">すべての画面</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <sc-for list="{{ mapList }}" as="m" hint-placeholder-count="10">
+              <div onClick="{{ m.onClick }}" style="cursor:pointer;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-xs);">
+                <span style="display:inline-flex;flex:0 0 auto;width:34px;height:34px;border-radius:9px;background:var(--green-50);color:var(--color-primary);align-items:center;justify-content:center;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="{{ m.icon }}" size="18" hint-size="18px,18px"></x-import></span>
+                <span style="display:flex;flex-direction:column;min-width:0;"><strong style="font-size:13px;color:var(--color-text-strong);">{{ m.label }}</strong><span style="font-size:11px;color:var(--color-text-secondary);">{{ m.sub }}</span></span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ======================= HOME ======================= -->
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:18px 16px 32px;display:flex;flex-direction:column;gap:22px;">
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <span style="font-size:13px;color:var(--color-text-secondary);">こんにちは、今日はいい剪定日和です</span>
+          <h2 style="margin:0;font-family:var(--font-serif);font-weight:700;font-size:23px;color:var(--color-text-strong);">今日は何をしますか？</h2>
+        </div>
+
+        <!-- two primary actions -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div onClick="{{ goUpload }}" style="cursor:pointer;position:relative;background:var(--color-primary-strong);color:#fff;border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow-md);overflow:hidden;">
+            <span style="display:inline-flex;flex:0 0 auto;width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.16);align-items:center;justify-content:center;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="camera" size="26" hint-size="26px,26px"></x-import></span>
+            <span style="flex:1;display:flex;flex-direction:column;gap:3px;"><strong style="font-size:17px;">写真でAI診断する</strong><span style="font-size:12.5px;color:rgba(255,255,255,.82);line-height:1.6;">木を撮るだけ。切る枝・残す枝を提案</span></span>
+            <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="arrow-right" size="22" hint-size="22px,22px"></x-import>
+          </div>
+          <div onClick="{{ goSearch }}" style="cursor:pointer;background:var(--color-surface);border:1px solid var(--color-border);border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;box-shadow:var(--card-shadow);">
+            <span style="display:inline-flex;flex:0 0 auto;width:52px;height:52px;border-radius:14px;background:var(--green-50);color:var(--color-primary);align-items:center;justify-content:center;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="search" size="26" hint-size="26px,26px"></x-import></span>
+            <span style="flex:1;display:flex;flex-direction:column;gap:3px;"><strong style="font-size:17px;color:var(--color-text-strong);">植物名から調べる</strong><span style="font-size:12.5px;color:var(--color-text-secondary);line-height:1.6;">剪定時期・肥料・手順を確認</span></span>
+            <span style="color:var(--color-text-tertiary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="arrow-right" size="22" hint-size="22px,22px"></x-import></span>
+          </div>
+        </div>
+
+        <!-- 今月の剪定対象 -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <h3 style="margin:0;display:flex;align-items:center;gap:8px;font-family:var(--font-serif);font-weight:700;font-size:17px;color:var(--color-text-strong);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="calendar" size="19" hint-size="19px,19px"></x-import>今月の剪定対象</h3>
+            <span style="font-size:12px;color:var(--color-text-secondary);font-variant-numeric:tabular-nums;">7月・2件</span>
+          </div>
+          <div style="display:flex;gap:12px;overflow-x:auto;margin:0 -16px;padding:2px 16px 6px;" class="scr">
+            <div style="flex:0 0 220px;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.PlantCard" name="{{ p0.name }}" subtitle="{{ p0.subtitle }}" tags="{{ p0.tags }}" season="{{ p0.season }}" description="{{ p0.description }}" favorite="{{ p0.favorite }}" on-toggle-favorite="{{ p0.onToggleFavorite }}" on-click="{{ p0.onClick }}" hint-size="220px,300px"></x-import></div>
+            <div style="flex:0 0 220px;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.PlantCard" name="{{ p1.name }}" subtitle="{{ p1.subtitle }}" tags="{{ p1.tags }}" season="{{ p1.season }}" description="{{ p1.description }}" favorite="{{ p1.favorite }}" on-toggle-favorite="{{ p1.onToggleFavorite }}" on-click="{{ p1.onClick }}" hint-size="220px,300px"></x-import></div>
+          </div>
+        </div>
+
+        <!-- quick links -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div onClick="{{ goHistory }}" style="cursor:pointer;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:14px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-xs);">
+            <span style="color:var(--color-secondary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="history" size="20" hint-size="20px,20px"></x-import></span>
+            <span style="font-size:13px;font-weight:600;color:var(--color-text);">剪定履歴</span>
+          </div>
+          <div onClick="{{ goFavorites }}" style="cursor:pointer;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:14px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-xs);">
+            <span style="color:var(--color-season);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="star" size="20" hint-size="20px,20px"></x-import></span>
+            <span style="font-size:13px;font-weight:600;color:var(--color-text);">お気に入り</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ======================= SEARCH ======================= -->
+    <sc-if value="{{ isSearch }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:16px 16px 32px;display:flex;flex-direction:column;gap:18px;">
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.SearchBar" placeholder="例: モミジ、ウメ、ツバキ" hint-size="100%,52px"></x-import>
+        <div style="display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;" class="scr">
+          <sc-for list="{{ categories }}" as="c" hint-placeholder-count="6">
+            <div style="flex:0 0 auto;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Tag" tone="{{ c.tone }}" icon="{{ c.icon }}" hint-size="auto,28px">{{ c.label }}</x-import></div>
+          </sc-for>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <h3 style="margin:0;font-family:var(--font-serif);font-weight:700;font-size:16px;color:var(--color-text-strong);">人気の植物</h3>
+          <span style="font-size:12px;color:var(--color-text-secondary);">{{ plantCount }}件</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <sc-for list="{{ plantList }}" as="p" hint-placeholder-count="4">
+            <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.PlantCard" name="{{ p.name }}" subtitle="{{ p.subtitle }}" tags="{{ p.tags }}" season="{{ p.season }}" description="{{ p.description }}" favorite="{{ p.favorite }}" on-toggle-favorite="{{ p.onToggleFavorite }}" on-click="{{ p.onClick }}" hint-size="100%,320px"></x-import>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ======================= DETAIL ======================= -->
+    <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;">
+        <div style="position:relative;width:100%;height:210px;background:var(--color-surface-sunken);">
+          <image-slot id="detail-hero" shape="rect" placeholder="モミジの写真"></image-slot>
+          <div style="position:absolute;left:14px;bottom:14px;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.SeasonBadge" level="avoid" month="7月" label="見送り" hint-size="auto,30px"></x-import></div>
+        </div>
+        <div style="padding:16px 16px 28px;display:flex;flex-direction:column;gap:18px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <h2 style="margin:0;font-family:var(--font-serif);font-weight:700;font-size:22px;color:var(--color-text-strong);">モミジ（イロハモミジ）</h2>
+              <span style="font-size:12.5px;color:var(--color-text-secondary);">学名 Acer palmatum ・ 落葉高木</span>
+            </div>
+            <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.IconButton" icon="star" label="お気に入り" tone="primary" on-click="{{ noop }}" hint-size="44px,44px"></x-import>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Tag" tone="green" icon="leaf" hint-size="auto,28px">落葉樹</x-import>
+            <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Tag" tone="brown" icon="trees" hint-size="auto,28px">庭木</x-import>
+            <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Tag" tone="yellow" icon="alert-triangle" hint-size="auto,28px">中級者向け</x-import>
+          </div>
+
+          <!-- tabs -->
+          <div style="display:flex;gap:6px;background:var(--color-surface-sunken);padding:4px;border-radius:12px;">
+            <sc-for list="{{ detailTabs }}" as="t" hint-placeholder-count="4">
+              <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+
+          <!-- tab content -->
+          <sc-if value="{{ dtOverview }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <p style="margin:0;font-size:15px;line-height:1.85;color:var(--color-text);">手のひら状の葉が美しい落葉樹。放任すると枝が混み合いやすく、風通しを保つ剪定が大切です。</p>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;">
+                  <span style="color:var(--color-primary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="calendar" size="20" hint-size="20px,20px"></x-import></span>
+                  <span style="flex:1;font-size:13px;color:var(--color-text);">剪定に適した時期</span>
+                  <strong style="font-size:14px;color:var(--color-text-strong);font-variant-numeric:tabular-nums;">11〜2月</strong>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;">
+                  <span style="color:var(--color-warning);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="hand" size="20" hint-size="20px,20px"></x-import></span>
+                  <span style="flex:1;font-size:13px;color:var(--color-text);">避けたい時期</span>
+                  <strong style="font-size:14px;color:var(--color-warning-text);font-variant-numeric:tabular-nums;">4〜6月</strong>
+                </div>
+              </div>
+              <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.AlertBox" tone="info" title="はじめての方へ" hint-size="100%,90px">モミジは切りすぎると枝枯れしやすい木です。まずは枯れ枝と混み枝の間引きから始めましょう。</x-import>
+            </div>
+          </sc-if>
+          <sc-if value="{{ dtPrune }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <div style="padding:14px;background:var(--green-50);border:1px solid var(--green-100);border-radius:12px;display:flex;gap:12px;">
+                <span style="color:var(--color-primary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="scissors" size="20" hint-size="20px,20px"></x-import></span>
+                <div><strong style="font-size:13px;color:var(--green-800);">切る枝</strong><p style="margin:4px 0 0;font-size:13px;line-height:1.7;color:var(--color-text);">枯れ枝・内向き枝・交差枝・幹から真上に伸びる徒長枝。</p></div>
+              </div>
+              <div style="padding:14px;background:var(--blue-50);border:1px solid var(--blue-100);border-radius:12px;display:flex;gap:12px;">
+                <span style="color:var(--blue-700);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="shield-check" size="20" hint-size="20px,20px"></x-import></span>
+                <div><strong style="font-size:13px;color:var(--blue-700);">残す枝</strong><p style="margin:4px 0 0;font-size:13px;line-height:1.7;color:var(--color-text);">外向きに伸びる主枝と、樹形の骨格になる元気な枝。</p></div>
+              </div>
+              <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.AlertBox" tone="warning" title="注意" hint-size="100%,80px">太い枝（直径3cm超）の切り戻しは切り口が枯れ込みやすいため慎重に。</x-import>
+            </div>
+          </sc-if>
+          <sc-if value="{{ dtCare }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;">
+                <span style="color:var(--color-secondary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="sprout" size="20" hint-size="20px,20px"></x-import></span>
+                <span style="flex:1;font-size:13px;color:var(--color-text);">肥料の時期</span>
+                <strong style="font-size:14px;color:var(--color-text-strong);">2月・寒肥</strong>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;">
+                <span style="color:var(--blue-600);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="droplet" size="20" hint-size="20px,20px"></x-import></span>
+                <span style="flex:1;font-size:13px;color:var(--color-text);">水やり</span>
+                <strong style="font-size:14px;color:var(--color-text-strong);">土の乾きを見て</strong>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ dtTips }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;gap:10px;font-size:13.5px;line-height:1.7;color:var(--color-text);"><span style="color:var(--color-primary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="check-circle-2" size="18" hint-size="18px,18px"></x-import></span>切る前に一歩下がって全体の形を確認する</div>
+              <div style="display:flex;gap:10px;font-size:13.5px;line-height:1.7;color:var(--color-text);"><span style="color:var(--color-primary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="check-circle-2" size="18" hint-size="18px,18px"></x-import></span>一度に全体の1/3以上は切らない</div>
+              <div style="display:flex;gap:10px;font-size:13.5px;line-height:1.7;color:var(--color-text);"><span style="color:var(--color-primary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="check-circle-2" size="18" hint-size="18px,18px"></x-import></span>切り口は枝の付け根で。中途半端に残さない</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ======================= UPLOAD ======================= -->
+    <sc-if value="{{ isUpload }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:18px 16px 32px;display:flex;flex-direction:column;gap:18px;">
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.PageTitle" eyebrow="STEP 1 / 3" title="写真を撮る" description="木全体・気になる枝の2〜3枚があると精度が上がります。" hint-size="100%,110px"></x-import>
+        <div style="position:relative;width:100%;height:200px;border-radius:14px;overflow:hidden;border:1px solid var(--color-border);background:var(--color-surface-sunken);">
+          <image-slot id="upload-main" shape="rect" placeholder="ここに木の写真をドロップ"></image-slot>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="primary" size="md" icon="camera" full-width="{{ true }}" hint-size="100%,52px">撮影する</x-import>
+          <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="outline" size="md" icon="image-plus" full-width="{{ true }}" hint-size="100%,52px">写真を選ぶ</x-import>
+        </div>
+
+        <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow-xs);">
+          <strong style="font-size:14px;color:var(--color-text-strong);display:flex;align-items:center;gap:8px;"><span style="color:var(--color-season);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="lightbulb" size="18" hint-size="18px,18px"></x-import></span>撮影のコツ</strong>
+          <div style="display:flex;gap:10px;font-size:13px;line-height:1.6;color:var(--color-text);"><span style="color:var(--color-primary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="check" size="17" hint-size="17px,17px"></x-import></span>木全体が入る角度で撮る</div>
+          <div style="display:flex;gap:10px;font-size:13px;line-height:1.6;color:var(--color-text);"><span style="color:var(--color-primary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="check" size="17" hint-size="17px,17px"></x-import></span>枝ぶりが見える明るい場所で</div>
+          <div style="display:flex;gap:10px;font-size:13px;line-height:1.6;color:var(--color-text);"><span style="color:var(--color-primary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="check" size="17" hint-size="17px,17px"></x-import></span>気になる部分は近づいてもう1枚</div>
+        </div>
+
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Input" label="樹木名（任意）" placeholder="例: モミジ、ウメ、不明" icon-left="leaf" helper="分からない場合は空欄でもAIが推定します" hint-size="100%,100px"></x-import>
+
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="primary" size="lg" icon-right="arrow-right" full-width="{{ true }}" on-click="{{ goConditions }}" hint-size="100%,58px">剪定の希望を選ぶ</x-import>
+      </div>
+    </sc-if>
+
+    <!-- ======================= CONDITIONS ======================= -->
+    <sc-if value="{{ isConditions }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:18px 16px 32px;display:flex;flex-direction:column;gap:20px;">
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.PageTitle" eyebrow="STEP 2 / 3" title="剪定の希望を選ぶ" description="どのくらい切るか、何を目指すかを選ぶとAIが合わせて提案します。" hint-size="100%,110px"></x-import>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <span style="font-family:var(--font-sans);font-weight:700;font-size:13px;color:var(--color-text);">剪定の強さ</span>
+          <sc-for list="{{ strengthList }}" as="s" hint-placeholder-count="3">
+            <div onClick="{{ s.onSelect }}" style="{{ s.style }}">
+              <span style="{{ s.iconStyle }}"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="{{ s.icon }}" size="22" hint-size="22px,22px"></x-import></span>
+              <span style="flex:1;display:flex;flex-direction:column;gap:2px;"><strong style="font-size:15px;color:var(--color-text-strong);">{{ s.label }}</strong><span style="font-size:12.5px;color:var(--color-text-secondary);line-height:1.5;">{{ s.desc }}</span></span>
+              <sc-if value="{{ s.selected }}" hint-placeholder-val="{{ false }}"><span style="color:var(--color-primary);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="check-circle-2" size="22" hint-size="22px,22px"></x-import></span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <span style="font-family:var(--font-sans);font-weight:700;font-size:13px;color:var(--color-text);">目的（複数選択できます）</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <sc-for list="{{ goalsList }}" as="g" hint-placeholder-count="5">
+              <div onClick="{{ g.onToggle }}" style="{{ g.style }}">
+                <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="{{ g.icon }}" size="20" hint-size="20px,20px"></x-import>
+                <span style="font-size:13px;font-weight:600;">{{ g.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="primary" size="lg" icon="sparkles" full-width="{{ true }}" on-click="{{ startAnalyze }}" hint-size="100%,58px">AI分析へ進む</x-import>
+      </div>
+    </sc-if>
+
+    <!-- ======================= ANALYZING ======================= -->
+    <sc-if value="{{ isAnalyzing }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:24px 20px 32px;display:flex;flex-direction:column;align-items:center;gap:22px;min-height:100%;">
+        <div style="position:relative;width:180px;height:180px;border-radius:20px;overflow:hidden;border:1px solid var(--color-border);background:var(--color-surface-sunken);box-shadow:var(--card-shadow);">
+          <image-slot id="analyze-photo" shape="rect" placeholder="分析中の写真"></image-slot>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;">
+          <span aria-hidden="true" style="width:34px;height:34px;border-radius:50%;border:3px solid var(--green-100);border-top-color:var(--color-primary);animation:ds-spin 850ms linear infinite;"></span>
+          <strong style="font-size:17px;color:var(--color-text-strong);margin-top:8px;">AIが写真を分析しています</strong>
+          <span style="font-size:13px;color:var(--color-text-secondary);">{{ analyzeStage }}</span>
+        </div>
+        <div style="width:100%;max-width:280px;display:flex;flex-direction:column;gap:8px;">
+          <div style="height:8px;border-radius:999px;background:var(--green-100);overflow:hidden;"><div style="height:100%;background:var(--color-primary);border-radius:999px;transition:width .2s ease;width:{{ progressPct }};"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--color-text-secondary);font-variant-numeric:tabular-nums;"><span>{{ progressPct }}</span><span>目安 約10秒</span></div>
+        </div>
+        <div style="width:100%;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.AlertBox" tone="info" title="安心してお待ちください" hint-size="100%,80px">診断は参考情報です。仕上がりは木の状態を直接確認しながら進めてください。</x-import></div>
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="text" size="md" on-click="{{ back }}" hint-size="auto,52px">キャンセル</x-import>
+      </div>
+    </sc-if>
+
+    <!-- ======================= RESULT ======================= -->
+    <sc-if value="{{ isResult }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:16px 16px 32px;display:flex;flex-direction:column;gap:16px;">
+        <div style="position:relative;width:100%;height:180px;border-radius:14px;overflow:hidden;border:1px solid var(--color-border);background:var(--color-surface-sunken);">
+          <image-slot id="result-hero" shape="rect" placeholder="診断した写真"></image-slot>
+          <div style="position:absolute;left:12px;top:12px;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.StatusBadge" status="adapted" hint-size="auto,30px"></x-import></div>
+        </div>
+
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            <h2 style="margin:0;font-family:var(--font-serif);font-weight:700;font-size:20px;color:var(--color-text-strong);">モミジ（推定）</h2>
+            <span style="font-size:12.5px;color:var(--color-text-secondary);">現在の状態：枝が混み合い、風通しがやや低下</span>
+          </div>
+          <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.SeasonBadge" level="ok" label="剪定可" hint-size="auto,30px"></x-import>
+        </div>
+
+        <!-- confidence -->
+        <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow-xs);">
+          <div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:13px;color:var(--color-text);display:flex;gap:7px;align-items:center;"><span style="color:var(--color-info);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="gauge" size="18" hint-size="18px,18px"></x-import></span>AIの確信度</span><strong style="font-size:14px;color:var(--color-text-strong);font-variant-numeric:tabular-nums;">中（78%）</strong></div>
+          <div style="height:8px;border-radius:999px;background:var(--blue-50);overflow:hidden;"><div style="height:100%;width:78%;background:var(--color-info);border-radius:999px;"></div></div>
+          <span style="font-size:11.5px;color:var(--color-text-secondary);line-height:1.5;">写真から推定しています。樹種が不確かな場合は名前を入力すると精度が上がります。</span>
+        </div>
+
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.AnalysisResultCard" title="AI剪定診断" status="ok" summary="{{ resultSummary }}" sections="{{ resultSections }}" hint-size="100%,520px"></x-import>
+
+        <!-- tools + time -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;">
+            <span style="font-size:12px;color:var(--color-text-secondary);display:flex;gap:6px;align-items:center;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="wrench" size="16" hint-size="16px,16px"></x-import>必要な道具</span>
+            <strong style="font-size:13.5px;color:var(--color-text-strong);line-height:1.5;">剪定ばさみ・のこぎり・手袋</strong>
+          </div>
+          <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;">
+            <span style="font-size:12px;color:var(--color-text-secondary);display:flex;gap:6px;align-items:center;"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="clock" size="16" hint-size="16px,16px"></x-import>作業時間の目安</span>
+            <strong style="font-size:13.5px;color:var(--color-text-strong);">約30〜45分</strong>
+          </div>
+        </div>
+
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.AlertBox" tone="danger" title="専門家への相談をおすすめします" hint-size="100%,90px">高所・直径5cmを超える太枝・電線付近の作業は、安全のため造園業者へ依頼してください。</x-import>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="primary" size="lg" icon="list-checks" full-width="{{ true }}" on-click="{{ goSteps }}" hint-size="100%,58px">剪定手順を見る</x-import>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="outline" size="md" icon="bookmark" full-width="{{ true }}" on-click="{{ saveResult }}" hint-size="100%,52px">結果を保存</x-import>
+            <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="outline" size="md" icon="rotate-ccw" full-width="{{ true }}" on-click="{{ goUpload }}" hint-size="100%,52px">再分析</x-import>
+          </div>
+          <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="text" size="md" icon="check-circle-2" full-width="{{ true }}" on-click="{{ openDoneModal }}" hint-size="100%,52px">剪定完了として記録</x-import>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ======================= STEPS ======================= -->
+    <sc-if value="{{ isSteps }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:18px 16px 32px;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <h2 style="margin:0;font-family:var(--font-serif);font-weight:700;font-size:19px;color:var(--color-text-strong);">剪定の手順</h2>
+          <span style="font-size:13px;color:var(--color-text-secondary);font-variant-numeric:tabular-nums;">{{ stepDoneCount }} / 5 完了</span>
+        </div>
+        <div style="height:8px;border-radius:999px;background:var(--green-100);overflow:hidden;"><div style="height:100%;background:var(--color-primary);border-radius:999px;transition:width .3s ease;width:{{ stepProgressPct }};"></div></div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <sc-for list="{{ stepList }}" as="st" hint-placeholder-count="5">
+            <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.StepCard" step="{{ st.step }}" title="{{ st.title }}" description="{{ st.description }}" done="{{ st.done }}" on-toggle="{{ st.onToggle }}" hint-size="100%,90px"></x-import>
+          </sc-for>
+        </div>
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.AlertBox" tone="warning" title="作業前に" hint-size="100%,70px">各ステップは一度に切りすぎないよう、少しずつ確認しながら進めてください。</x-import>
+      </div>
+    </sc-if>
+
+    <!-- ======================= HISTORY ======================= -->
+    <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:18px 16px 32px;display:flex;flex-direction:column;gap:16px;">
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.PageTitle" eyebrow="MY GARDEN" title="剪定の記録" description="剪定前後の写真とAI診断を、木ごとに残せます。" hint-size="100%,100px"></x-import>
+        <sc-for list="{{ historyList }}" as="h" hint-placeholder-count="2">
+          <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:14px;overflow:hidden;box-shadow:var(--card-shadow);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--color-border);">
+              <div style="display:flex;flex-direction:column;gap:2px;"><strong style="font-size:15px;color:var(--color-text-strong);">{{ h.name }}</strong><span style="font-size:11.5px;color:var(--color-text-secondary);font-variant-numeric:tabular-nums;">{{ h.date }}</span></div>
+              <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.StatusBadge" status="done" size="sm" hint-size="auto,24px"></x-import>
+            </div>
+            <div style="display:flex;gap:2px;">
+              <div style="flex:1;position:relative;height:130px;background:var(--color-surface-sunken);"><image-slot id="{{ h.beforeId }}" shape="rect" placeholder="剪定前"></image-slot><span style="position:absolute;left:8px;top:8px;background:rgba(23,42,32,.72);color:#fff;font-size:11px;padding:3px 8px;border-radius:999px;">剪定前</span></div>
+              <div style="flex:1;position:relative;height:130px;background:var(--color-surface-sunken);"><image-slot id="{{ h.afterId }}" shape="rect" placeholder="剪定後"></image-slot><span style="position:absolute;left:8px;top:8px;background:var(--color-primary);color:#fff;font-size:11px;padding:3px 8px;border-radius:999px;">剪定後</span></div>
+            </div>
+            <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
+              <p style="margin:0;font-size:13px;line-height:1.7;color:var(--color-text-secondary);">{{ h.memo }}</p>
+              <div style="display:flex;gap:8px;">
+                <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="outline" size="sm" icon="git-compare" on-click="{{ noop }}" hint-size="auto,40px">昨年と比較</x-import>
+                <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="text" size="sm" icon="trash-2" on-click="{{ openDeleteModal }}" hint-size="auto,40px">削除</x-import>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    </main>
+
+    <!-- ===== bottom nav ===== -->
+    <nav style="flex:0 0 auto;position:relative;display:flex;align-items:stretch;height:72px;background:var(--color-surface);border-top:1px solid var(--color-border);padding-bottom:env(safe-area-inset-bottom,0);">
+      <sc-for list="{{ navLeft }}" as="n" hint-placeholder-count="2">
+        <button onClick="{{ n.onClick }}" style="{{ n.style }}"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="{{ n.icon }}" size="23" hint-size="23px,23px"></x-import><span style="font-size:11px;">{{ n.label }}</span></button>
+      </sc-for>
+      <div style="flex:1;position:relative;display:flex;align-items:flex-start;justify-content:center;">
+        <button onClick="{{ goUpload }}" style="position:absolute;top:-20px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:50%;background:var(--color-primary);color:#fff;box-shadow:var(--shadow-fab);"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="sparkles" size="26" hint-size="26px,26px"></x-import></span>
+          <span style="font-size:11px;font-weight:700;color:var(--color-primary);margin-top:26px;">AI診断</span>
+        </button>
+      </div>
+      <sc-for list="{{ navRight }}" as="n" hint-placeholder-count="2">
+        <button onClick="{{ n.onClick }}" style="{{ n.style }}"><x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Icon" name="{{ n.icon }}" size="23" hint-size="23px,23px"></x-import><span style="font-size:11px;">{{ n.label }}</span></button>
+      </sc-for>
+    </nav>
+
+    <!-- ===== modal ===== -->
+    <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+      <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Modal" open="{{ true }}" title="{{ modalTitle }}" on-close="{{ closeModal }}" width="330" hint-size="0,0">
+        <p style="margin:0;font-size:14px;line-height:1.8;color:var(--color-text);">{{ modalBody }}</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
+          <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="text" size="md" on-click="{{ closeModal }}" hint-size="auto,52px">やめる</x-import>
+          <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Button" variant="{{ modalConfirmVariant }}" size="md" on-click="{{ confirmModal }}" hint-size="auto,52px">{{ modalConfirmLabel }}</x-import>
+        </div>
+      </x-import>
+    </sc-if>
+
+    <!-- ===== toast ===== -->
+    <sc-if value="{{ toastMsg }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:16px;right:16px;bottom:88px;display:flex;justify-content:center;z-index:60;">
+        <x-import component-from-global-scope="AIPruningAssistantDesignSystem_a95f89.Toast" tone="{{ toastTone }}" message="{{ toastMsg }}" on-close="{{ hideToast }}" hint-size="100%,50px"></x-import>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    screen: "home", stack: [], detailTab: "overview",
+    strength: "standard", goals: ["shape", "airflow"],
+    progress: 0, doneSteps: {}, fav: {},
+    modal: null, toast: null, toastTone: "success",
+  };
+
+  navTo = (s) => this.setState((st) => ({ stack: [...st.stack, st.screen], screen: s, toast: null }));
+  setTab = (s) => this.setState({ screen: s, stack: [], toast: null });
+  back = () => { clearInterval(this._t); this.setState((st) => { const stk = [...st.stack]; const prev = stk.pop() || "home"; return { screen: prev, stack: stk }; }); };
+  noop = () => {};
+
+  startAnalyze = () => {
+    this.setState((st) => ({ stack: [...st.stack, st.screen], screen: "analyzing", progress: 0 }));
+    clearInterval(this._t);
+    this._t = setInterval(() => {
+      this.setState((s) => {
+        const p = Math.min(100, s.progress + 4);
+        if (p >= 100) { clearInterval(this._t); setTimeout(() => this.setState({ screen: "result" }), 450); }
+        return { progress: p };
+      });
+    }, 95);
+  };
+
+  saveResult = () => this.setState({ toast: "診断結果を保存しました", toastTone: "success" });
+  hideToast = () => this.setState({ toast: null });
+  openDoneModal = () => this.setState({ modal: "done" });
+  openDeleteModal = () => this.setState({ modal: "delete" });
+  closeModal = () => this.setState({ modal: null });
+  confirmModal = () => {
+    const m = this.state.modal;
+    this.setState({ modal: null, toast: m === "delete" ? "記録を削除しました" : "剪定完了として記録しました", toastTone: m === "delete" ? "warning" : "success" });
+  };
+
+  selCard(sel) {
+    return "cursor:pointer;display:flex;align-items:center;gap:14px;padding:14px;border-radius:12px;transition:all .15s ease;border:1.5px solid " +
+      (sel ? "var(--color-primary);background:var(--color-primary-light);" : "var(--color-border-strong);background:var(--color-surface);");
+  }
+  goalCard(sel) {
+    return "cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:14px;border-radius:12px;min-height:78px;transition:all .15s ease;border:1.5px solid " +
+      (sel ? "var(--color-primary);background:var(--color-primary-light);color:var(--color-primary-strong);" : "var(--color-border-strong);background:var(--color-surface);color:var(--color-text);");
+  }
+  tabBtn(sel) {
+    return "flex:1;border:none;cursor:pointer;padding:9px 4px;border-radius:9px;font-family:var(--font-sans);font-size:12.5px;font-weight:700;transition:all .15s ease;" +
+      (sel ? "background:var(--color-surface);color:var(--color-primary-strong);box-shadow:var(--shadow-xs);" : "background:transparent;color:var(--color-text-secondary);");
+  }
+  navBtn(active) {
+    return "flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:48px;border:none;background:transparent;cursor:pointer;font-weight:" +
+      (active ? "700" : "500") + ";color:" + (active ? "var(--color-primary)" : "var(--color-text-secondary)") + ";";
+  }
+
+  componentWillUnmount() { clearInterval(this._t); }
+
+  renderVals() {
+    const { screen, detailTab, strength, goals, progress, doneSteps, fav, modal, toast, toastTone } = this.state;
+    const nav = this.navTo;
+    const titles = {
+      overview: "画面マップ", search: "植物を探す", detail: "植物の詳細", upload: "写真でAI診断",
+      conditions: "剪定の希望", analyzing: "AI分析中", result: "AI診断結果", steps: "剪定手順", history: "剪定の記録",
+    };
+
+    const mkPlant = (id, name, subtitle, tags, season, description) => ({
+      name, subtitle, tags, season, description,
+      favorite: !!fav[id],
+      onToggleFavorite: () => this.setState((s) => ({ fav: { ...s.fav, [id]: !s.fav[id] } })),
+      onClick: () => nav("detail"),
+    });
+    const plants = [
+      mkPlant("momiji", "モミジ", "イロハモミジ・落葉樹", ["落葉樹", { label: "庭木", tone: "brown", icon: "trees" }], { level: "avoid", month: "7月", label: "見送り" }, "夏は避け、落葉後の11〜2月に混み枝を間引きます。"),
+      mkPlant("ume", "ウメ", "梅・落葉花木", ["花木", { label: "初心者向け", tone: "green", icon: "leaf" }], { level: "ok", month: "7月", label: "剪定可" }, "花芽を残しながら、伸びすぎた徒長枝を整理します。"),
+      mkPlant("tsubaki", "ツバキ", "椿・常緑樹", [{ label: "常緑樹", tone: "green", icon: "leaf" }, { label: "花木", tone: "yellow" }], { level: "avoid", month: "7月", label: "見送り" }, "花後すぐ（4〜5月）に軽く整えるのが基本です。"),
+      mkPlant("olive", "オリーブ", "常緑樹・鉢植え向き", [{ label: "常緑樹", tone: "green", icon: "leaf" }, { label: "初心者向け", tone: "green" }], { level: "good", month: "7月", label: "適期" }, "風通しよく。内側の枝を抜いて樹形を整えます。"),
+    ];
+
+    const goalDefs = [
+      { key: "shape", label: "樹形を整えたい", icon: "ruler" },
+      { key: "smaller", label: "小さくしたい", icon: "minimize-2" },
+      { key: "deadwood", label: "枯れ枝を取りたい", icon: "scissors" },
+      { key: "flowers", label: "花を増やしたい", icon: "flower-2" },
+      { key: "airflow", label: "風通しを良くしたい", icon: "wind" },
+    ];
+    const strengthDefs = [
+      { key: "light", label: "軽く整える", desc: "少しだけ。形を保ちながら整える", icon: "feather" },
+      { key: "standard", label: "標準的に剪定する", desc: "混み枝を間引き、バランスを整える", icon: "scissors" },
+      { key: "strong", label: "強く剪定する", desc: "大きく切り戻し。コンパクトに", icon: "axe" },
+    ];
+
+    const stepDefs = [
+      { step: 1, title: "枯れ枝を探して切る", description: "茶色く枯れた枝、折れた枝を根元から取り除きます。" },
+      { step: 2, title: "内側へ伸びる枝を確認", description: "幹の内側・下向きに伸びる枝を整理します。" },
+      { step: 3, title: "交差している枝を整理", description: "こすれ合う枝は弱い方を付け根で切ります。" },
+      { step: 4, title: "混み合った部分を間引く", description: "全体の1/3以内で、光と風が通るように。" },
+      { step: 5, title: "樹形を確認して仕上げ", description: "一歩下がって全体を見て、飛び出た枝を整えます。" },
+    ];
+    const doneCount = stepDefs.filter((s) => doneSteps[s.step]).length;
+
+    const stageText = progress < 30 ? "写真から樹種と枝ぶりを読み取り中…" : progress < 65 ? "切る枝・残す枝を判定中…" : progress < 95 ? "季節と剪定の強さを照合中…" : "提案をまとめています…";
+
+    return {
+      // routing
+      isOverview: screen === "overview", isHome: screen === "home", isSearch: screen === "search",
+      isDetail: screen === "detail", isUpload: screen === "upload", isConditions: screen === "conditions",
+      isAnalyzing: screen === "analyzing", isResult: screen === "result", isSteps: screen === "steps", isHistory: screen === "history",
+      showBack: screen !== "home",
+      headerTitle: titles[screen] || "",
+      back: this.back, noop: this.noop,
+      goOverview: () => nav("overview"), goSearch: () => this.setTab("search"), goUpload: () => nav("upload"),
+      goConditions: () => nav("conditions"), goSteps: () => nav("steps"), goHistory: () => this.setTab("history"),
+      goFavorites: () => this.setTab("search"), startAnalyze: this.startAnalyze,
+      saveResult: this.saveResult, openDoneModal: this.openDoneModal, openDeleteModal: this.openDeleteModal,
+
+      // overview map
+      mapList: [
+        { icon: "home", label: "ホーム", sub: "入口と近況", onClick: () => this.setTab("home") },
+        { icon: "search", label: "植物検索", sub: "名前・種類で探す", onClick: () => this.setTab("search") },
+        { icon: "leaf", label: "植物詳細", sub: "時期・肥料・手順", onClick: () => nav("detail") },
+        { icon: "camera", label: "写真アップロード", sub: "撮影・選択", onClick: () => nav("upload") },
+        { icon: "sliders-horizontal", label: "剪定条件の選択", sub: "強さ・目的", onClick: () => nav("conditions") },
+        { icon: "sparkles", label: "AI分析中", sub: "進行状況", onClick: () => nav("analyzing") },
+        { icon: "clipboard-check", label: "AI分析結果", sub: "切る枝・残す枝", onClick: () => nav("result") },
+        { icon: "list-checks", label: "剪定手順", sub: "ステップ形式", onClick: () => nav("steps") },
+        { icon: "history", label: "履歴", sub: "前後の比較", onClick: () => this.setTab("history") },
+        { icon: "star", label: "お気に入り", sub: "庭木の管理", onClick: () => this.setTab("search") },
+      ],
+
+      // home cards
+      p0: plants[0], p1: plants[1],
+
+      // search
+      plantList: plants, plantCount: plants.length,
+      categories: [
+        { label: "常緑樹", tone: "green", icon: "leaf" },
+        { label: "落葉樹", tone: "brown", icon: "trees" },
+        { label: "花木", tone: "yellow", icon: "flower-2" },
+        { label: "果樹", tone: "green", icon: "apple" },
+        { label: "鉢植え", tone: "blue", icon: "flower" },
+        { label: "観葉植物", tone: "green", icon: "sprout" },
+      ],
+
+      // detail tabs
+      detailTabs: [
+        { key: "overview", label: "概要" }, { key: "prune", label: "剪定" },
+        { key: "care", label: "肥料・水" }, { key: "tips", label: "コツ" },
+      ].map((t) => ({ label: t.label, onClick: () => this.setState({ detailTab: t.key }), style: this.tabBtn(detailTab === t.key) })),
+      dtOverview: detailTab === "overview", dtPrune: detailTab === "prune", dtCare: detailTab === "care", dtTips: detailTab === "tips",
+
+      // conditions
+      strengthList: strengthDefs.map((s) => ({
+        ...s, selected: strength === s.key,
+        onSelect: () => this.setState({ strength: s.key }),
+        style: this.selCard(strength === s.key),
+        iconStyle: "display:inline-flex;flex:0 0 auto;width:44px;height:44px;border-radius:11px;align-items:center;justify-content:center;" +
+          (strength === s.key ? "background:var(--color-primary);color:#fff;" : "background:var(--green-50);color:var(--color-primary);"),
+      })),
+      goalsList: goalDefs.map((g) => ({
+        ...g, selected: goals.includes(g.key),
+        onToggle: () => this.setState((st) => ({ goals: st.goals.includes(g.key) ? st.goals.filter((x) => x !== g.key) : [...st.goals, g.key] })),
+        style: this.goalCard(goals.includes(g.key)),
+      })),
+
+      // analyzing
+      progressPct: progress + "%", analyzeStage: stageText,
+
+      // result
+      resultSummary: "全体に枝が混み合い、風通しがやや低下しています。夏は本格剪定を避け、枯れ枝と徒長枝の整理を中心に「軽め」の剪定をおすすめします。",
+      resultSections: [
+        { tone: "cut", heading: "切るとよい枝", body: "・枯れ枝、内向きの枝\n・幹から真上に強く伸びる徒長枝\n・交差してこすれ合う枝の弱い方" },
+        { tone: "keep", heading: "残す枝", body: "外向きに自然に広がる主枝。樹形の骨格になる枝は残してください。" },
+        { tone: "caution", heading: "今の注意点", body: "夏は切り口が傷みやすい時期です。太い枝の切り戻しは秋以降がおすすめです。" },
+      ],
+
+      // steps
+      stepList: stepDefs.map((s) => ({
+        step: s.step, title: s.title, description: s.description, done: !!doneSteps[s.step],
+        onToggle: () => this.setState((st) => ({ doneSteps: { ...st.doneSteps, [s.step]: !st.doneSteps[s.step] } })),
+      })),
+      stepDoneCount: doneCount, stepProgressPct: (doneCount / stepDefs.length * 100) + "%",
+
+      // history
+      historyList: [
+        { name: "庭のモミジ", date: "2025年12月14日", beforeId: "hist-momiji-b", afterId: "hist-momiji-a", memo: "混み枝を間引いて風通しを改善。来年は3月に寒肥を追加予定。" },
+        { name: "玄関のウメ", date: "2025年2月2日", beforeId: "hist-ume-b", afterId: "hist-ume-a", memo: "花後に徒長枝を整理。花付きが良くなった。" },
+      ],
+
+      // bottom nav
+      navLeft: [
+        { icon: "home", label: "ホーム", onClick: () => this.setTab("home"), style: this.navBtn(screen === "home") },
+        { icon: "search", label: "植物", onClick: () => this.setTab("search"), style: this.navBtn(screen === "search" || screen === "detail") },
+      ],
+      navRight: [
+        { icon: "history", label: "履歴", onClick: () => this.setTab("history"), style: this.navBtn(screen === "history") },
+        { icon: "settings", label: "設定", onClick: this.noop, style: this.navBtn(false) },
+      ],
+
+      // modal
+      modalOpen: !!modal,
+      modalTitle: modal === "delete" ? "記録を削除しますか？" : "剪定完了として記録",
+      modalBody: modal === "delete" ? "この剪定記録と写真を削除します。この操作は元に戻せません。" : "今回の診断を「作業完了」として履歴に保存します。よろしいですか？",
+      modalConfirmLabel: modal === "delete" ? "削除する" : "記録する",
+      modalConfirmVariant: modal === "delete" ? "danger" : "primary",
+      closeModal: this.closeModal, confirmModal: this.confirmModal,
+
+      // toast
+      toastMsg: toast, toastTone: toastTone, hideToast: this.hideToast,
+    };
+  }
+}
+</script>
+</body>
+</html>

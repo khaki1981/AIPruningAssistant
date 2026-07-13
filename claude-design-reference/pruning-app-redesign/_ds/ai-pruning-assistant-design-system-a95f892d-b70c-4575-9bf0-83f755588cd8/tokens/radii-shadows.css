@@ -1,0 +1,61 @@
+/* ============================================================
+   Radii · Shadows · Borders — AI Pruning Assistant
+   自然で柔らかい印象。ただし丸すぎて幼くならないよう中庸の角丸。
+   影は低コントラスト・緑みのある柔らかい影（浮きすぎない）。
+   ============================================================ */
+:root {
+  /* Radii — 中庸。カード14 / ボタン10 / 入力10 */
+  --radius-xs: 6px;   /* タグ・チップ */
+  --radius-sm: 8px;   /* 小要素 */
+  --radius-md: 10px;  /* ボタン・入力欄 */
+  --radius-lg: 14px;  /* カード */
+  --radius-xl: 20px;  /* モーダル・大きな面 */
+  --radius-image: 12px; /* 画像 */
+  --radius-full: 999px; /* アイコンボタン・アバター・FAB・ピル型タグ */
+
+  /* Shadows — 緑みのある低コントラストの柔らかい影 */
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgba(27, 38, 32, 0.05);
+  --shadow-sm: 0 2px 6px rgba(27, 38, 32, 0.06);
+  --shadow-card: 0 6px 18px rgba(33, 54, 40, 0.08); /* カード標準 */
+  --shadow-md: 0 10px 26px rgba(33, 54, 40, 0.10);  /* 浮いた要素 */
+  --shadow-lg: 0 18px 45px rgba(33, 54, 40, 0.13);  /* モーダル */
+  --shadow-fab: 0 8px 20px rgba(46, 125, 79, 0.30); /* FAB(緑) */
+  --shadow-focus: var(--focus-ring);
+
+  /* Borders */
+  --border-width: 1px; /* @kind other */
+  --border-width-strong: 1.5px; /* @kind other */
+  --border-hairline: 1px solid var(--color-border);
+  --border-input: 1px solid var(--color-border-strong);
+
+  /* ---- Component role tokens ---- */
+  /* カード: 角丸14 / 微細な枠 + 柔らかい影 */
+  --card-radius: var(--radius-lg);
+  --card-border: 1px solid var(--color-border);
+  --card-shadow: var(--shadow-card);
+  --card-padding: var(--space-6);
+
+  /* ボタン: 角丸10 / 枠なし(primary) / 押下で沈む */
+  --button-radius: var(--radius-md);
+
+  /* 入力欄: 角丸10 / 1px枠 / focusで緑リング */
+  --input-radius: var(--radius-md);
+  --input-border: 1px solid var(--color-border-strong);
+
+  /* モーダル: 角丸20 / 大きな影 */
+  --modal-radius: var(--radius-xl);
+  --modal-shadow: var(--shadow-lg);
+
+  /* 画像: 角丸12 / clip */
+  --image-radius: var(--radius-image);
+
+  /* タグ: 角丸6(角形) または full(ピル) */
+  --tag-radius: var(--radius-xs);
+
+  /* Motion */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --dur-fast: 130ms; /* @kind other */
+  --dur: 180ms; /* @kind other */
+  --dur-slow: 260ms; /* @kind other */
+}

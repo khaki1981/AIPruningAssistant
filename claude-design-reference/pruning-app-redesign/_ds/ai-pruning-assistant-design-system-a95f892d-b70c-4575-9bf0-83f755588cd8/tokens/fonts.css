@@ -1,0 +1,7 @@
+/* ============================================================
+   Fonts — AI Pruning Assistant
+   日本語UIを前提。本文=Noto Sans JP（可読性・屋外視認性）
+   見出しアクセント=Shippori Mincho（庭・園芸ノートの落ち着き）
+   数値=タブラー数字のためNoto Sans JPを流用（font-feature）
+   ============================================================ */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Shippori+Mincho:wght@500;600;700&display=swap");

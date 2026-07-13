@@ -1,12 +1,20 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { PruningStrength, UploadedPhoto } from "./types";
 
 const pruningOptions: PruningStrength[] = [
-  "強剪定",
   "軽剪定",
   "形を整える程度",
   "枯れ枝の整理",
+  "強剪定",
 ];
+
+const pruningOptionDescriptions: Record<PruningStrength, string> = {
+  軽剪定: "混み合った枝を少し減らし、風通しを整えます",
+  形を整える程度: "自然な樹形を残しながら、伸びた枝を整えます",
+  枯れ枝の整理: "枯れ・傷みが気になる枝を優先して確認します",
+  強剪定: "大きさを抑える剪定です。樹種と時期に注意が必要です",
+};
 
 const requiredSections = [
   "現在の時期に剪定して良いか",
@@ -146,6 +154,312 @@ async function requestGeminiDiagnosis(input: {
   return text;
 }
 
+type IconName =
+  | "camera"
+  | "check"
+  | "info"
+  | "leaf"
+  | "scissors"
+  | "sparkles"
+  | "trash"
+  | "warning";
+
+function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
+  const paths: Record<IconName, ReactNode> = {
+    camera: (
+      <>
+        <path d="M14.5 4 16 7h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3l1.5-3z" />
+        <circle cx="12" cy="13" r="3.5" />
+      </>
+    ),
+    check: <path d="m5 12 4 4L19 6" />,
+    info: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 11v5M12 8h.01" />
+      </>
+    ),
+    leaf: (
+      <>
+        <path d="M20 4c-7 0-12 3-12 9 0 3 2 5 5 5 6 0 7-7 7-14Z" />
+        <path d="M4 20c3-5 7-8 13-11" />
+      </>
+    ),
+    scissors: (
+      <>
+        <circle cx="6" cy="7" r="3" />
+        <circle cx="6" cy="17" r="3" />
+        <path d="m8.6 8.5 11 6.5M8.6 15.5 20 9M14 12l-3-2" />
+      </>
+    ),
+    sparkles: (
+      <>
+        <path d="m12 3 1.3 3.7L17 8l-3.7 1.3L12 13l-1.3-3.7L7 8l3.7-1.3z" />
+        <path d="m18 14 .8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8zM5 13l.7 1.8L7.5 15l-1.8.7L5 17.5l-.7-1.8L2.5 15l1.8-.7z" />
+      </>
+    ),
+    trash: (
+      <>
+        <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
+      </>
+    ),
+    warning: (
+      <>
+        <path d="M10.3 4.2 2.7 18a2 2 0 0 0 1.8 3h15a2 2 0 0 0 1.8-3L13.7 4.2a2 2 0 0 0-3.4 0Z" />
+        <path d="M12 9v4M12 17h.01" />
+      </>
+    ),
+  };
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="icon"
+      fill="none"
+      height={size}
+      viewBox="0 0 24 24"
+      width={size}
+    >
+      <g stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
+        {paths[name]}
+      </g>
+    </svg>
+  );
+}
+
+function AppHeader() {
+  return (
+    <header className="app-header">
+      <div className="app-header__inner">
+        <a className="brand" href="#top" aria-label="剪定AIアシスタント トップへ">
+          <span className="brand__mark">
+            <Icon name="scissors" size={21} />
+          </span>
+          <span>剪定AIアシスタント</span>
+        </a>
+        <span className="app-header__tag">
+          <Icon name="leaf" size={16} />
+          安全重視
+        </span>
+      </div>
+    </header>
+  );
+}
+
+function SectionCard({
+  children,
+  description,
+  eyebrow,
+  title,
+}: {
+  children: ReactNode;
+  description?: string;
+  eyebrow: string;
+  title: string;
+}) {
+  return (
+    <section className="section-card">
+      <div className="section-card__heading">
+        <span>{eyebrow}</span>
+        <h2>{title}</h2>
+        {description && <p>{description}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function AlertBox({
+  children,
+  tone = "info",
+}: {
+  children: ReactNode;
+  tone?: "error" | "info" | "warning";
+}) {
+  return (
+    <div className={`alert-box alert-box--${tone}`} role={tone === "error" ? "alert" : "note"}>
+      <span className="alert-box__icon">
+        <Icon name={tone === "warning" || tone === "error" ? "warning" : "info"} size={20} />
+      </span>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function UploadArea({
+  onChange,
+  onRemove,
+  photos,
+}: {
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (id: string) => void;
+  photos: UploadedPhoto[];
+}) {
+  return (
+    <div className="upload-area-wrap">
+      <label className="upload-area" htmlFor="photos">
+        <span className="upload-area__icon">
+          <Icon name="camera" size={28} />
+        </span>
+        <strong>{photos.length > 0 ? "写真を追加・撮り直す" : "木の写真を選ぶ"}</strong>
+        <span>カメラ撮影または写真ライブラリから選択</span>
+        <small>JPEG・PNGなど／複数枚選択できます</small>
+      </label>
+      <input
+        className="visually-hidden"
+        id="photos"
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={onChange}
+      />
+
+      {photos.length === 0 ? (
+        <p className="upload-status">
+          <Icon name="info" size={17} />
+          まだ写真が選択されていません。診断には1枚以上必要です。
+        </p>
+      ) : (
+        <>
+          <div className="selected-photo-heading">
+            <strong>分析に使う写真</strong>
+            <span>{photos.length}枚選択中</span>
+          </div>
+          <div className="preview-grid" aria-label="選択した写真">
+            {photos.map((photo, index) => (
+              <figure className="preview" key={photo.id}>
+                <img src={photo.url} alt={`分析用写真 ${index + 1}: ${photo.name}`} />
+                <button
+                  type="button"
+                  aria-label={`${photo.name}を削除`}
+                  onClick={() => onRemove(photo.id)}
+                >
+                  <Icon name="trash" size={18} />
+                </button>
+                <figcaption>{photo.name}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function PruningOptionCard({
+  checked,
+  onChange,
+  option,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  option: PruningStrength;
+}) {
+  return (
+    <label className={`pruning-option ${checked ? "is-selected" : ""}`}>
+      <input
+        type="radio"
+        name="strength"
+        value={option}
+        checked={checked}
+        onChange={onChange}
+      />
+      <span className="pruning-option__check" aria-hidden="true">
+        {checked && <Icon name="check" size={17} />}
+      </span>
+      <span className="pruning-option__copy">
+        <strong>{option}</strong>
+        <small>{pruningOptionDescriptions[option]}</small>
+      </span>
+    </label>
+  );
+}
+
+type DiagnosisSection = {
+  title: string;
+  lines: string[];
+  items: string[];
+};
+
+function parseDiagnosis(text: string) {
+  const sections: DiagnosisSection[] = [];
+  let current: DiagnosisSection = { title: "診断の概要", lines: [], items: [] };
+
+  const pushCurrent = () => {
+    if (current.lines.length > 0 || current.items.length > 0) sections.push(current);
+  };
+
+  text.split(/\r?\n/).forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return;
+
+    const heading = line.match(/^#{1,3}\s+(.+)$/);
+    if (heading) {
+      pushCurrent();
+      current = { title: heading[1], lines: [], items: [] };
+      return;
+    }
+
+    const item = line.match(/^(?:[-*・]|\d+[.)])\s*(.+)$/);
+    if (item) {
+      current.items.push(item[1]);
+      return;
+    }
+
+    current.lines.push(line);
+  });
+
+  pushCurrent();
+  return sections;
+}
+
+function LoadingState() {
+  return (
+    <div className="loading-state" role="status">
+      <div className="loading-state__visual" aria-hidden="true">
+        <span className="loading-spinner" />
+        <Icon name="sparkles" size={24} />
+      </div>
+      <div>
+        <strong>写真を分析しています</strong>
+        <p>木の状態と入力内容から、安全側の剪定方針を作成しています。</p>
+      </div>
+      <div className="loading-state__steps" aria-hidden="true">
+        <span className="is-active" />
+        <span />
+        <span />
+      </div>
+    </div>
+  );
+}
+
+function AnalysisResult({ diagnosis }: { diagnosis: string }) {
+  const sections = parseDiagnosis(diagnosis);
+
+  return (
+    <div className="analysis-sections">
+      {sections.map((section, index) => (
+        <article className="analysis-section" key={`${section.title}-${index}`}>
+          <span className="analysis-section__number">{String(index + 1).padStart(2, "0")}</span>
+          <div>
+            <h3>{section.title}</h3>
+            {section.lines.map((line, lineIndex) => (
+              <p key={`${line}-${lineIndex}`}>{line}</p>
+            ))}
+            {section.items.length > 0 && (
+              <ul>
+                {section.items.map((item, itemIndex) => (
+                  <li key={`${item}-${itemIndex}`}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [treeName, setTreeName] = useState("");
   const [strength, setStrength] = useState<PruningStrength>("軽剪定");
@@ -224,196 +538,212 @@ function App() {
     }
   };
 
+  const resultStatus = isLoading
+    ? "分析中"
+    : diagnosis
+      ? "分析完了"
+      : errorMessage
+        ? "要確認"
+        : "未分析";
+
   return (
-    <main>
-      <header className="hero">
-        <div className="hero__content">
-          <span className="eyebrow">AI Pruning Assistant</span>
-          <h1>剪定AIアシスタント</h1>
-          <p>
-            庭木の写真と状態を入力して、今の時期に合った剪定方針を確認できます。
-          </p>
-        </div>
-        <div className="hero__mark" aria-hidden="true">
-          <span>枝</span>
-        </div>
-      </header>
+    <div className="app-shell" id="top">
+      <AppHeader />
 
-      <div className="page-grid">
-        <form className="card form-card" onSubmit={handleSubmit}>
-          <div className="section-heading">
-            <span>01</span>
-            <div>
-              <h2>木の状態を教えてください</h2>
-              <p>写真と気になる点をもとに、Geminiが剪定診断を作成します。</p>
+      <main className="app-main">
+        <section className="intro">
+          <div className="intro__copy">
+            <span className="eyebrow">AI PRUNING ASSISTANT</span>
+            <h1>写真から、今できる剪定をわかりやすく。</h1>
+            <p>
+              庭木の写真と気になる点をもとに、剪定の時期・強さ・確認する枝を安全側に整理します。
+            </p>
+            <div className="intro__points" aria-label="サービスの特徴">
+              <span><Icon name="camera" size={17} />写真で確認</span>
+              <span><Icon name="sparkles" size={17} />AIが整理</span>
+              <span><Icon name="warning" size={17} />安全を優先</span>
             </div>
           </div>
+          <div className="intro__art" aria-hidden="true">
+            <span className="intro__art-ring" />
+            <Icon name="leaf" size={72} />
+          </div>
+        </section>
 
-          <div className="field">
-            <div className="field__label-row">
-              <label htmlFor="photos">木の写真</label>
-              <span>複数選択できます</span>
-            </div>
-            <label className="upload-box" htmlFor="photos">
-              <span className="upload-box__icon" aria-hidden="true">
-                +
-              </span>
-              <strong>写真を追加する</strong>
-              <small>JPEG・PNGなどの画像ファイル</small>
-            </label>
-            <input
-              className="visually-hidden"
-              id="photos"
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handlePhotos}
-            />
+        <form className="diagnosis-form" onSubmit={handleSubmit} noValidate>
+          <div className="form-column">
+            <SectionCard
+              eyebrow="STEP 1"
+              title="木の写真を追加"
+              description="木全体と気になる枝が分かる写真を選んでください。"
+            >
+              <UploadArea photos={photos} onChange={handlePhotos} onRemove={removePhoto} />
+            </SectionCard>
 
-            {photos.length > 0 && (
-              <div className="preview-grid" aria-label="選択した写真">
-                {photos.map((photo) => (
-                  <figure className="preview" key={photo.id}>
-                    <img src={photo.url} alt={photo.name} />
-                    <button
-                      type="button"
-                      aria-label={`${photo.name}を削除`}
-                      onClick={() => removePhoto(photo.id)}
-                    >
-                      x
-                    </button>
-                    <figcaption>{photo.name}</figcaption>
-                  </figure>
-                ))}
+            <SectionCard
+              eyebrow="STEP 2"
+              title="木の状態を入力"
+              description="分かる範囲で大丈夫です。樹木名が不明でも診断できます。"
+            >
+              <div className="field">
+                <label htmlFor="treeName">植物名・樹木名 <span>任意</span></label>
+                <input
+                  id="treeName"
+                  type="text"
+                  placeholder="例：モミジ、ウメ、ツバキ、不明"
+                  value={treeName}
+                  onChange={(event) => setTreeName(event.target.value)}
+                />
               </div>
-            )}
+
+              <div className="field">
+                <label htmlFor="concerns">気になること <span>任意</span></label>
+                <textarea
+                  id="concerns"
+                  rows={5}
+                  placeholder="例：大きくなりすぎた、隣家へ枝が伸びている、枯れ枝がある"
+                  value={concerns}
+                  onChange={(event) => setConcerns(event.target.value)}
+                />
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              eyebrow="STEP 3"
+              title="希望する剪定を選択"
+              description="迷う場合は「軽剪定」がおすすめです。"
+            >
+              <fieldset className="strength-fieldset">
+                <legend className="visually-hidden">剪定の強さ</legend>
+                <div className="pruning-options">
+                  {pruningOptions.map((option) => (
+                    <PruningOptionCard
+                      checked={strength === option}
+                      key={option}
+                      onChange={() => setStrength(option)}
+                      option={option}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+            </SectionCard>
+
+            <section className="submit-panel" aria-labelledby="submit-title">
+              <div className="submit-panel__status">
+                <span className={photos.length > 0 ? "is-ready" : ""}>
+                  {photos.length > 0 ? <Icon name="check" size={18} /> : <Icon name="camera" size={18} />}
+                </span>
+                <div>
+                  <strong id="submit-title">
+                    {photos.length > 0 ? "診断の準備ができました" : "写真を選ぶと診断できます"}
+                  </strong>
+                  <small>選択中：{strength}{photos.length > 0 ? `／写真${photos.length}枚` : ""}</small>
+                </div>
+              </div>
+
+              {errorMessage && (
+                <AlertBox tone="error">
+                  <strong>診断を開始できませんでした</strong>
+                  <p>{errorMessage}</p>
+                </AlertBox>
+              )}
+
+              <button className="primary-button" type="submit" disabled={isLoading}>
+                {isLoading ? <span className="button-spinner" aria-hidden="true" /> : <Icon name="sparkles" size={22} />}
+                {isLoading ? "AIが写真を分析中…" : "AI診断を開始する"}
+              </button>
+              <p className="privacy-note" id="diagnosis-note">
+                入力内容と写真はGemini APIへ送信されます。AIの回答は参考情報として利用し、実作業前に木の状態を直接確認してください。
+              </p>
+            </section>
           </div>
 
-          <div className="field">
-            <label htmlFor="treeName">樹木名</label>
-            <input
-              id="treeName"
-              type="text"
-              placeholder="例: モミジ、ウメ、ツバキ、サクラ、不明"
-              value={treeName}
-              onChange={(event) => setTreeName(event.target.value)}
-            />
-          </div>
+          <aside className="tips-column" aria-label="撮影と安全のヒント">
+            <section className="tips-card">
+              <span className="tips-card__icon"><Icon name="camera" size={22} /></span>
+              <div>
+                <span className="eyebrow">PHOTO TIPS</span>
+                <h2>判断しやすい写真</h2>
+              </div>
+              <ol>
+                <li><span>1</span><p><strong>木全体</strong>が収まるように、少し離れて撮影</p></li>
+                <li><span>2</span><p>正面だけでなく<strong>別の角度</strong>からも撮影</p></li>
+                <li><span>3</span><p>枯れ・混み合いなど<strong>気になる部分</strong>を近くで撮影</p></li>
+              </ol>
+            </section>
 
-          <fieldset className="field">
-            <legend>剪定の強さ</legend>
-            <div className="radio-grid">
-              {pruningOptions.map((option) => (
-                <label
-                  className={`radio-card ${strength === option ? "is-selected" : ""}`}
-                  key={option}
-                >
-                  <input
-                    type="radio"
-                    name="strength"
-                    value={option}
-                    checked={strength === option}
-                    onChange={() => setStrength(option)}
-                  />
-                  <span>{option}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <div className="field">
-            <label htmlFor="concerns">気になる点</label>
-            <textarea
-              id="concerns"
-              rows={5}
-              placeholder="例: 大きくなりすぎた、隣家に枝が伸びている、枯れ枝がある、どこを切ればよいかわからない"
-              value={concerns}
-              onChange={(event) => setConcerns(event.target.value)}
-            />
-          </div>
-
-          {errorMessage && <p className="error-message">{errorMessage}</p>}
-
-          <button className="diagnose-button" type="submit" disabled={isLoading}>
-            <span aria-hidden="true">{isLoading ? "..." : "✓"}</span>
-            {isLoading ? "診断中..." : "AIで診断する"}
-          </button>
-          <p className="form-note">
-            入力内容と写真はGemini APIへ送信されます。実作業は木の状態を直接確認してから行ってください。
-          </p>
+            <AlertBox tone="warning">
+              <strong>無理な作業は避けてください</strong>
+              <p>高所、太い枝、電線付近の作業は専門家へ相談してください。</p>
+            </AlertBox>
+          </aside>
         </form>
 
-        <aside className="guide-card">
-          <span className="guide-card__label">撮影のヒント</span>
-          <h2>判断しやすい写真</h2>
-          <ol>
-            <li>
-              <span>1</span>
-              <p>
-                <strong>木全体</strong>が収まる写真
-              </p>
-            </li>
-            <li>
-              <span>2</span>
-              <p>
-                正面とは別の<strong>角度から</strong>撮った写真
-              </p>
-            </li>
-            <li>
-              <span>3</span>
-              <p>
-                混み合い、枯れ、病害虫など<strong>気になる部分</strong>のアップ
-              </p>
-            </li>
-          </ol>
-          <p className="guide-card__caution">
-            剪定の適期は樹種や地域で異なります。最終的な作業判断は、木の状態を直接確認して行ってください。
-          </p>
-        </aside>
-      </div>
-
-      <section className="result card" ref={diagnosisRef} aria-live="polite">
-        <div className="result__header">
-          <div>
-            <span className="eyebrow">Gemini diagnosis</span>
-            <h2>診断結果</h2>
-          </div>
-          <span className="result__badge">
-            {isLoading ? "診断中" : diagnosis ? "完了" : "未診断"}
-          </span>
-        </div>
-
-        {isLoading && (
-          <div className="loading-panel">
-            <span className="loading-spinner" aria-hidden="true" />
-            <p>写真と入力内容をGeminiへ送信し、剪定方針を作成しています。</p>
-          </div>
-        )}
-
-        {!isLoading && !diagnosis && !errorMessage && (
-          <div className="empty-result">
-            <p>写真を追加して「AIで診断する」を押すと、ここに結果が表示されます。</p>
-          </div>
-        )}
-
-        {!isLoading && diagnosis && (
-          <>
-            <div className="result__summary">
-              <strong>{treeName.trim() || "樹種不明"}の剪定診断</strong>
-              <p>
-                {strength}を前提に、{getCurrentDateForPrompt()}時点の写真と入力内容から診断しました。
-              </p>
+        <section
+          className="result-card"
+          ref={diagnosisRef}
+          aria-busy={isLoading}
+          aria-live="polite"
+        >
+          <div className="result-card__header">
+            <div>
+              <span className="eyebrow">AI ANALYSIS</span>
+              <h2>剪定診断の結果</h2>
+              <p>写真と入力内容から、確認ポイントを順番に整理します。</p>
             </div>
-            <div className="diagnosis-text">{diagnosis}</div>
-          </>
-        )}
-      </section>
+            <span className={`status-badge status-badge--${isLoading ? "loading" : diagnosis ? "success" : errorMessage ? "error" : "idle"}`}>
+              {diagnosis && <Icon name="check" size={16} />}
+              {resultStatus}
+            </span>
+          </div>
 
-      <footer>
-        <span>AI Pruning Assistant</span>
-        <p>安全に配慮し、無理のない範囲で作業してください。</p>
+          {isLoading && <LoadingState />}
+
+          {!isLoading && !diagnosis && !errorMessage && (
+            <div className="empty-state">
+              <span><Icon name="leaf" size={36} /></span>
+              <strong>診断結果はここに表示されます</strong>
+              <p>上のフォームで写真と剪定条件を選び、「AI診断を開始する」を押してください。</p>
+            </div>
+          )}
+
+          {!isLoading && errorMessage && (
+            <AlertBox tone="error">
+              <strong>診断結果を取得できませんでした</strong>
+              <p>{errorMessage}</p>
+            </AlertBox>
+          )}
+
+          {!isLoading && diagnosis && (
+            <>
+              <div className="result-summary">
+                <span className="result-summary__icon"><Icon name="leaf" size={24} /></span>
+                <div>
+                  <span>今回の診断</span>
+                  <strong>{treeName.trim() || "樹種不明"} ／ {strength}</strong>
+                  <p>{getCurrentDateForPrompt()}時点の写真と入力内容をもとにしています。</p>
+                </div>
+              </div>
+              <AnalysisResult diagnosis={diagnosis} />
+              <AlertBox tone="warning">
+                <strong>診断は参考情報です</strong>
+                <p>写真だけでは分からない木の傷みや周辺の危険があります。切る前に枝元と足場を確認してください。</p>
+              </AlertBox>
+            </>
+          )}
+        </section>
+      </main>
+
+      <footer className="app-footer">
+        <div>
+          <span className="brand brand--footer">
+            <span className="brand__mark"><Icon name="scissors" size={19} /></span>
+            <span>AI Pruning Assistant</span>
+          </span>
+          <p>庭木と人の安全を第一に、無理のない範囲で作業してください。</p>
+        </div>
       </footer>
-    </main>
+    </div>
   );
 }
 

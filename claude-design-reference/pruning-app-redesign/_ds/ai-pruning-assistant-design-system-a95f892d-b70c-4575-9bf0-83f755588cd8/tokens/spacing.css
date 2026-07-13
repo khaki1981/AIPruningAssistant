@@ -1,0 +1,39 @@
+/* ============================================================
+   Spacing & Layout — AI Pruning Assistant
+   4pxベース（8pxを主リズム）。モバイルファースト。
+   タップ領域は最小44px、推奨48px（40〜70代・屋外操作を想定）。
+   ============================================================ */
+:root {
+  /* Spacing scale (4px base) */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;   /* モバイル左右余白の基準 */
+  --space-5: 20px;
+  --space-6: 24px;   /* カード内パディング標準 */
+  --space-8: 32px;   /* カード間・小セクション */
+  --space-10: 40px;
+  --space-12: 48px;  /* セクション間 */
+  --space-16: 64px;  /* 大セクション間(PC) */
+
+  /* Layout */
+  --page-gutter-mobile: 16px;   /* スマホ左右余白 */
+  --page-gutter-desktop: 24px;
+  --card-gap: 16px;             /* カード間の余白 */
+  --section-gap: 48px;         /* セクション間の余白 */
+  --content-max: 1120px;       /* 最大コンテンツ幅 */
+  --content-narrow: 720px;     /* 読み物・単一カラム最大幅 */
+
+  /* Touch targets */
+  --tap-min: 44px;   /* 最小タップ領域(WCAG) */
+  --tap-comfort: 48px; /* 推奨タップ領域 */
+  --control-height: 52px; /* 入力欄・主ボタンの標準高さ(押しやすさ優先) */
+
+  /* Z-index */
+  --z-nav: 100; /* @kind other */
+  --z-sticky: 200; /* @kind other */
+  --z-modal-backdrop: 900; /* @kind other */
+  --z-modal: 1000; /* @kind other */
+  --z-toast: 1100; /* @kind other */
+}

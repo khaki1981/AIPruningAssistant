@@ -1,0 +1,112 @@
+/* ============================================================
+   Colors — AI Pruning Assistant
+   主役: 緑（植物・成長・安心）  補助: 茶（土・幹）
+   差し色: 水色（水・清潔）/ 黄（日光・季節・注意）
+   すべて均等に使わず、緑を主役に落ち着いたトーンで統一。
+   コントラストは背景 Surface(#FFFFFF) / Background(#F6F4EC) 基準で記載。
+   ============================================================ */
+:root {
+  /* --- Palette scales (raw) --- */
+  /* Green — 主役 */
+  --green-900: #163a27;
+  --green-800: #1d4a31;
+  --green-700: #256641; /* primary hover */
+  --green-600: #2e7d4f; /* primary */
+  --green-500: #479367;
+  --green-300: #9cc3a8;
+  --green-100: #dcebe0;
+  --green-50:  #eef5f0; /* primary light */
+
+  /* Brown / Clay — 補助（土・幹） */
+  --brown-800: #4f382a;
+  --brown-700: #6b4a35;
+  --brown-600: #855b41; /* secondary */
+  --brown-400: #b07a52;
+  --brown-200: #e2cdbc;
+  --brown-100: #efe3d8; /* secondary light */
+
+  /* Water blue — 差し色（水・清潔・情報） */
+  --blue-700: #1f6a86;
+  --blue-600: #2b83a3; /* accent / info */
+  --blue-400: #6fb4cd;
+  --blue-100: #dcedf3;
+  --blue-50:  #eef6f9;
+
+  /* Sun yellow — 差し色（日光・季節・注意） */
+  --yellow-700: #9a6b12;
+  --yellow-600: #c08a1c; /* warning text-safe */
+  --yellow-500: #e0a52e; /* season accent */
+  --yellow-200: #f4dfa6;
+  --yellow-100: #fbeecb;
+
+  /* Red — エラー（土に近い落ち着いた赤） */
+  --red-700: #9c342a;
+  --red-600: #c0453b;
+  --red-100: #f7e0dc;
+
+  /* Neutrals — アイボリー〜フォレストグレー */
+  --ink-900: #1b2620; /* text strongest */
+  --ink-800: #243028; /* text primary */
+  --ink-500: #5c6660; /* text secondary */
+  --ink-400: #79837c; /* text tertiary / placeholder */
+  --paper:   #ffffff;
+  --paper-warm: #fffdf7;
+  --cream:   #f6f4ec; /* background */
+  --cream-green: #f0f4ee; /* alt background, 薄グリーン */
+  --line-200: #e4e1d6;
+  --line-300: #d7dacd;
+
+  /* ============================================================
+     Semantic tokens — アプリはこちらを参照する
+     ============================================================ */
+
+  /* Brand / actions */
+  --color-primary:        var(--green-600); /* HEX #2e7d4f | 主ボタン・主要操作 | on白 4.9:1 AA | 白文字可 */
+  --color-primary-hover:  var(--green-700); /* HEX #256641 | hover/押下時の濃色 | 白文字可 */
+  --color-primary-light:  var(--green-50);  /* HEX #eef5f0 | 選択面・淡い強調背景 | 文字下地用 */
+  --color-primary-strong: var(--green-800); /* HEX #1d4a31 | 濃い緑面・見出し帯 */
+
+  --color-secondary:       var(--brown-600); /* HEX #855b41 | 補助ボタン枠・幹/土系ラベル | 白文字可 */
+  --color-secondary-light: var(--brown-100); /* HEX #efe3d8 | 補助タグ下地 */
+
+  --color-accent:       var(--blue-600); /* HEX #2b83a3 | リンク・水/情報系・爽やかな差し色 | 白文字可 */
+  --color-accent-light: var(--blue-50);  /* HEX #eef6f9 | 情報カード下地 */
+
+  --color-season:       var(--yellow-500); /* HEX #e0a52e | 季節ポイント・お気に入り星 | 文字には不可(下地/アイコン用) */
+
+  /* Surfaces */
+  --color-bg:            var(--cream);      /* HEX #f6f4ec | 画面全体の下地(アイボリー) */
+  --color-bg-alt:        var(--cream-green);/* HEX #f0f4ee | セクション交互背景(薄グリーン) */
+  --color-surface:       var(--paper);      /* HEX #ffffff | カード・入力欄の面 */
+  --color-surface-warm:  var(--paper-warm); /* HEX #fffdf7 | 温かみのある面(任意) */
+  --color-surface-sunken: var(--green-50);  /* HEX #eef5f0 | 埋め込み/アップロード下地 */
+
+  /* Borders */
+  --color-border:        var(--line-200); /* HEX #e4e1d6 | 標準の枠線 */
+  --color-border-strong: var(--line-300); /* HEX #d7dacd | 入力欄・区切り線 */
+  --color-border-focus:  var(--green-600);/* HEX #2e7d4f | フォーカスリング */
+
+  /* Text */
+  --color-text:           var(--ink-800); /* HEX #243028 | 本文・見出し | on白 12.6:1 AAA */
+  --color-text-strong:    var(--ink-900); /* HEX #1b2620 | 最も強い見出し */
+  --color-text-secondary: var(--ink-500); /* HEX #5c6660 | 補足・キャプション | on白 5.9:1 AA */
+  --color-text-tertiary:  var(--ink-400); /* HEX #79837c | プレースホルダ | on白 3.8:1 (大文字/装飾のみ) */
+  --color-text-on-primary: #ffffff;       /* 緑/青/茶の面に載せる文字 */
+  --color-text-link:       var(--blue-700);/* HEX #1f6a86 | 本文中リンク | on白 5.7:1 AA */
+
+  /* Status — 意味は必ず文字/アイコンと併記（色のみに頼らない） */
+  --color-success:      var(--green-600); /* HEX #2e7d4f | 完了・適期 | 白文字可 */
+  --color-success-bg:   var(--green-50);  /* HEX #eef5f0 | 成功メッセージ下地 */
+  --color-warning:      var(--yellow-600);/* HEX #c08a1c | 注意（テキスト可のトーン） | on白 3.9:1(大)  */
+  --color-warning-bg:   var(--yellow-100);/* HEX #fbeecb | 注意メッセージ下地 */
+  --color-warning-text: var(--yellow-700);/* HEX #9a6b12 | 注意メッセージ本文 | on黄下地 AA */
+  --color-error:        var(--red-600);   /* HEX #c0453b | エラー | 白文字可 */
+  --color-error-bg:     var(--red-100);   /* HEX #f7e0dc | エラー下地 */
+  --color-error-text:   var(--red-700);   /* HEX #9c342a | エラー本文 | on白 5.6:1 AA */
+  --color-info:         var(--blue-600);  /* HEX #2b83a3 | 情報・AI分析中 | 白文字可 */
+  --color-info-bg:      var(--blue-50);   /* HEX #eef6f9 | 情報下地 */
+
+  /* Focus ring (共通) */
+  --focus-ring: 0 0 0 3px rgba(46, 125, 79, 0.30);
+  --focus-ring-accent: 0 0 0 3px rgba(43, 131, 163, 0.30);
+}
