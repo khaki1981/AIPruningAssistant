@@ -105,9 +105,42 @@ p {
   width: min(1120px, calc(100% - 32px));
   min-height: 64px;
   margin: 0 auto;
+  padding: 10px 0;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+.app-header__actions,
+.view-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-navigation button {
+  min-height: 38px;
+  padding: 7px 11px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  background: transparent;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.view-navigation button:hover,
+.view-navigation button:focus-visible {
+  border-color: var(--color-border-strong);
+  outline: 0;
+  color: var(--color-primary-strong);
+  background: var(--color-primary-light);
+}
+
+.view-navigation button.is-active {
+  color: white;
+  background: var(--color-primary);
 }
 
 .brand {
@@ -459,6 +492,7 @@ p {
 }
 
 input[type="text"],
+input[type="search"],
 textarea {
   width: 100%;
   border: 1px solid var(--color-border-strong);
@@ -470,7 +504,8 @@ textarea {
   transition: border-color 160ms, box-shadow 160ms, background 160ms;
 }
 
-input[type="text"] {
+input[type="text"],
+input[type="search"] {
   min-height: 52px;
   padding: 0 14px;
 }
@@ -483,11 +518,13 @@ textarea {
 }
 
 input[type="text"]::placeholder,
+input[type="search"]::placeholder,
 textarea::placeholder {
   color: #707b74;
 }
 
 input[type="text"]:focus,
+input[type="search"]:focus,
 textarea:focus {
   border-color: var(--color-primary);
   background: white;
@@ -1050,6 +1087,72 @@ textarea:focus {
   color: var(--color-primary);
 }
 
+.plant-directory__intro {
+  min-height: 260px;
+}
+
+.plant-directory__intro .intro__copy > p {
+  margin-bottom: 0;
+}
+
+.plant-list-section {
+  margin-top: 18px;
+}
+
+.plant-search {
+  max-width: 680px;
+}
+
+.plant-list-summary {
+  margin: 18px 0 10px;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.plant-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.plant-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-warm);
+}
+
+.plant-card__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plant-card h3 {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-family: "Shippori Mincho", "Yu Mincho", serif;
+  font-size: 1.15rem;
+}
+
+.plant-card__aliases,
+.plant-card__scientific {
+  margin: 9px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.plant-card__scientific {
+  font-style: italic;
+}
+
+.plant-list-empty {
+  min-height: 180px;
+}
+
 .app-footer {
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -1120,6 +1223,10 @@ textarea:focus {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .plant-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .pruning-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1178,6 +1285,14 @@ textarea:focus {
   .result-card {
     margin-top: 24px;
     padding: 40px;
+  }
+
+  .plant-directory__intro {
+    min-height: 300px;
+  }
+
+  .plant-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

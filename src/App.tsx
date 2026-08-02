@@ -1,5 +1,6 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import PlantListPage from "./PlantListPage";
 import type { PruningStrength, UploadedPhoto } from "./types";
 
 const pruningOptions: PruningStrength[] = [
@@ -227,7 +228,15 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   );
 }
 
-function AppHeader() {
+type AppView = "diagnosis" | "plants";
+
+function AppHeader({
+  activeView,
+  onNavigate,
+}: {
+  activeView: AppView;
+  onNavigate: (view: AppView) => void;
+}) {
   return (
     <header className="app-header">
       <div className="app-header__inner">
@@ -237,10 +246,30 @@ function AppHeader() {
           </span>
           <span>剪定AIアシスタント</span>
         </a>
-        <span className="app-header__tag">
-          <Icon name="leaf" size={16} />
-          安全重視
-        </span>
+        <div className="app-header__actions">
+          <nav className="view-navigation" aria-label="画面切り替え">
+            <button
+              className={activeView === "plants" ? "is-active" : ""}
+              type="button"
+              aria-current={activeView === "plants" ? "page" : undefined}
+              onClick={() => onNavigate("plants")}
+            >
+              植物を調べる
+            </button>
+            <button
+              className={activeView === "diagnosis" ? "is-active" : ""}
+              type="button"
+              aria-current={activeView === "diagnosis" ? "page" : undefined}
+              onClick={() => onNavigate("diagnosis")}
+            >
+              AI診断
+            </button>
+          </nav>
+          <span className="app-header__tag">
+            <Icon name="leaf" size={16} />
+            安全重視
+          </span>
+        </div>
       </div>
     </header>
   );
@@ -461,6 +490,7 @@ function AnalysisResult({ diagnosis }: { diagnosis: string }) {
 }
 
 function App() {
+  const [activeView, setActiveView] = useState<AppView>("plants");
   const [treeName, setTreeName] = useState("");
   const [strength, setStrength] = useState<PruningStrength>("軽剪定");
   const [concerns, setConcerns] = useState("");
@@ -548,9 +578,12 @@ function App() {
 
   return (
     <div className="app-shell" id="top">
-      <AppHeader />
+      <AppHeader activeView={activeView} onNavigate={setActiveView} />
 
-      <main className="app-main">
+      {activeView === "plants" ? (
+        <PlantListPage />
+      ) : (
+        <main className="app-main">
         <section className="intro">
           <div className="intro__copy">
             <span className="eyebrow">AI PRUNING ASSISTANT</span>
@@ -732,7 +765,8 @@ function App() {
             </>
           )}
         </section>
-      </main>
+        </main>
+      )}
 
       <footer className="app-footer">
         <div>
