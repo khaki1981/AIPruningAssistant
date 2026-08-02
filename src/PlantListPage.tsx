@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import PlantDetailPage from "./PlantDetailPage";
 import { loadPlants } from "./data/loadPlants";
+import type { PlantReviewStatus } from "./types/plant";
 
 const plants = loadPlants();
 
@@ -7,8 +9,21 @@ function normalizeSearchText(value: string) {
   return value.trim().toLocaleLowerCase("ja-JP");
 }
 
+function getReviewStatus(status: PlantReviewStatus) {
+  switch (status) {
+    case "verified":
+      return { label: "確認済み", className: "status-badge--success" };
+    case "reviewed":
+      return { label: "レビュー済み", className: "status-badge--loading" };
+    case "draft":
+      return { label: "確認中", className: "status-badge--idle" };
+  }
+}
+
 function PlantListPage() {
   const [query, setQuery] = useState("");
+  const [selectedPlantId, setSelectedPlantId] = useState<string>();
+  const listScrollPosition = useRef(0);
   const normalizedQuery = normalizeSearchText(query);
   const filteredPlants = useMemo(() => {
     if (!normalizedQuery) return plants;
@@ -19,6 +34,34 @@ function PlantListPage() {
       ),
     );
   }, [normalizedQuery]);
+
+  const selectedPlant = plants.find((plant) => plant.id === selectedPlantId);
+
+  useEffect(() => {
+    if (selectedPlant) window.scrollTo({ top: 0 });
+  }, [selectedPlant]);
+
+  const openPlantDetail = (plantId: string) => {
+    listScrollPosition.current = window.scrollY;
+    setSelectedPlantId(plantId);
+  };
+
+  const returnToList = () => {
+    const plantId = selectedPlantId;
+    setSelectedPlantId(undefined);
+    window.requestAnimationFrame(() => {
+      if (plantId) {
+        document
+          .getElementById(`plant-detail-button-${plantId}`)
+          ?.focus({ preventScroll: true });
+      }
+      window.scrollTo({ top: listScrollPosition.current });
+    });
+  };
+
+  if (selectedPlant) {
+    return <PlantDetailPage plant={selectedPlant} onBack={returnToList} />;
+  }
 
   return (
     <main className="app-main plant-directory">
@@ -56,22 +99,33 @@ function PlantListPage() {
 
         {filteredPlants.length > 0 ? (
           <div className="plant-grid">
-            {filteredPlants.map((plant) => (
-              <article className="plant-card" key={plant.id}>
-                <div className="plant-card__heading">
-                  <h3>{plant.nameJa}</h3>
-                  {plant.reviewStatus === "draft" && (
-                    <span className="status-badge status-badge--idle">確認中</span>
+            {filteredPlants.map((plant) => {
+              const status = getReviewStatus(plant.reviewStatus);
+              return (
+                <article className="plant-card" key={plant.id}>
+                  <div className="plant-card__heading">
+                    <h3>{plant.nameJa}</h3>
+                    <span className={`status-badge ${status.className}`}>{status.label}</span>
+                  </div>
+                  {plant.aliases.length > 0 && (
+                    <p className="plant-card__aliases">別名：{plant.aliases.join("、")}</p>
                   )}
-                </div>
-                {plant.aliases.length > 0 && (
-                  <p className="plant-card__aliases">別名：{plant.aliases.join("、")}</p>
-                )}
-                {plant.scientificName && (
-                  <p className="plant-card__scientific">{plant.scientificName}</p>
-                )}
-              </article>
-            ))}
+                  {plant.scientificName && (
+                    <p className="plant-card__scientific">{plant.scientificName}</p>
+                  )}
+                  <button
+                    className="plant-card__action"
+                    id={`plant-detail-button-${plant.id}`}
+                    type="button"
+                    aria-label={`${plant.nameJa}の詳しい情報を見る`}
+                    onClick={() => openPlantDetail(plant.id)}
+                  >
+                    詳しく見る
+                    <span aria-hidden="true">→</span>
+                  </button>
+                </article>
+              );
+            })}
           </div>
         ) : (
           <div className="empty-state plant-list-empty">
