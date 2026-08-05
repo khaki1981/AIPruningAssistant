@@ -153,6 +153,11 @@ p {
   text-decoration: none;
 }
 
+.app-header .brand {
+  border: 0;
+  background: transparent;
+}
+
 .brand__mark {
   display: inline-grid;
   flex: 0 0 38px;
@@ -183,6 +188,110 @@ p {
   width: min(1120px, calc(100% - 24px));
   margin: 0 auto;
   padding: 24px 0 56px;
+}
+
+.home-page {
+  padding-bottom: 72px;
+}
+
+.home-page__intro {
+  min-height: 280px;
+}
+
+.home-options {
+  display: grid;
+  gap: 14px;
+}
+
+.home-option {
+  display: grid;
+  width: 100%;
+  min-height: 150px;
+  padding: 22px 18px;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  color: var(--color-text);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+  transition: border-color 160ms, box-shadow 160ms, transform 160ms;
+}
+
+.home-option:not(:disabled):hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-2px);
+}
+
+.home-option:not(:disabled):focus-visible {
+  outline: 0;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring), var(--shadow-card);
+}
+
+.home-option__icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: var(--color-primary);
+}
+
+.home-option__copy,
+.home-option__copy > span {
+  display: block;
+}
+
+.home-option__copy strong {
+  color: var(--color-text-strong);
+  font-family: "Shippori Mincho", "Yu Mincho", serif;
+  font-size: 1.2rem;
+}
+
+.home-option__copy > span:last-child {
+  margin-top: 8px;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.home-option__arrow {
+  color: var(--color-primary);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.home-option__title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.home-option__title-row small {
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #76520d;
+  background: var(--color-warning-bg);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.home-option--disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+  box-shadow: none;
+}
+
+.home-option--disabled .home-option__icon {
+  color: var(--color-text-muted);
+  background: var(--color-border-strong);
 }
 
 .intro {
@@ -1494,6 +1603,10 @@ textarea:focus {
   }
 
   .plant-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

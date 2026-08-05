@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import PlantDetailPage from "./PlantDetailPage";
 import { loadPlants } from "./data/loadPlants";
 import type { PlantReviewStatus } from "./types/plant";
@@ -20,10 +20,25 @@ function getReviewStatus(status: PlantReviewStatus) {
   }
 }
 
-function PlantListPage() {
-  const [query, setQuery] = useState("");
-  const [selectedPlantId, setSelectedPlantId] = useState<string>();
+interface PlantListPageProps {
+  onBackHome: () => void;
+  onBackToList: () => void;
+  onQueryChange: (query: string) => void;
+  onSelectPlant: (plantId: string) => void;
+  query: string;
+  selectedPlantId?: string;
+}
+
+function PlantListPage({
+  onBackHome,
+  onBackToList,
+  onQueryChange,
+  onSelectPlant,
+  query,
+  selectedPlantId,
+}: PlantListPageProps) {
   const listScrollPosition = useRef(0);
+  const previousPlantId = useRef<string>();
   const normalizedQuery = normalizeSearchText(query);
   const filteredPlants = useMemo(() => {
     if (!normalizedQuery) return plants;
@@ -38,25 +53,31 @@ function PlantListPage() {
   const selectedPlant = plants.find((plant) => plant.id === selectedPlantId);
 
   useEffect(() => {
-    if (selectedPlant) window.scrollTo({ top: 0 });
+    if (selectedPlant) {
+      previousPlantId.current = selectedPlant.id;
+      window.scrollTo({ top: 0 });
+      return;
+    }
+
+    const plantId = previousPlantId.current;
+    if (!plantId) return;
+
+    previousPlantId.current = undefined;
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`plant-detail-button-${plantId}`)
+        ?.focus({ preventScroll: true });
+      window.scrollTo({ top: listScrollPosition.current });
+    });
   }, [selectedPlant]);
 
   const openPlantDetail = (plantId: string) => {
     listScrollPosition.current = window.scrollY;
-    setSelectedPlantId(plantId);
+    onSelectPlant(plantId);
   };
 
   const returnToList = () => {
-    const plantId = selectedPlantId;
-    setSelectedPlantId(undefined);
-    window.requestAnimationFrame(() => {
-      if (plantId) {
-        document
-          .getElementById(`plant-detail-button-${plantId}`)
-          ?.focus({ preventScroll: true });
-      }
-      window.scrollTo({ top: listScrollPosition.current });
-    });
+    onBackToList();
   };
 
   if (selectedPlant) {
@@ -65,6 +86,11 @@ function PlantListPage() {
 
   return (
     <main className="app-main plant-directory">
+      <button className="plant-detail__back" type="button" onClick={onBackHome}>
+        <span aria-hidden="true">←</span>
+        ホームへ戻る
+      </button>
+
       <section className="intro plant-directory__intro">
         <div className="intro__copy">
           <span className="eyebrow">PLANT DIRECTORY</span>
@@ -87,7 +113,7 @@ function PlantListPage() {
             type="search"
             placeholder="例：ウメ、梅、Hydrangea"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => onQueryChange(event.target.value)}
           />
         </div>
 

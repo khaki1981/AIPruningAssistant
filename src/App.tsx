@@ -228,7 +228,29 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   );
 }
 
-type AppView = "diagnosis" | "plants";
+type AppView = "home" | "diagnosis" | "plants";
+
+type AppRoute = {
+  view: AppView;
+  plantId?: string;
+};
+
+const homeRoute: AppRoute = { view: "home" };
+
+function readRoute(value: unknown): AppRoute {
+  if (typeof value !== "object" || value === null) return homeRoute;
+
+  const route = (value as { pruningAssistantRoute?: unknown }).pruningAssistantRoute;
+  if (typeof route !== "object" || route === null) return homeRoute;
+
+  const { plantId, view } = route as { plantId?: unknown; view?: unknown };
+  if (view !== "home" && view !== "plants" && view !== "diagnosis") return homeRoute;
+
+  return {
+    view,
+    plantId: view === "plants" && typeof plantId === "string" ? plantId : undefined,
+  };
+}
 
 function AppHeader({
   activeView,
@@ -240,12 +262,17 @@ function AppHeader({
   return (
     <header className="app-header">
       <div className="app-header__inner">
-        <a className="brand" href="#top" aria-label="剪定AIアシスタント トップへ">
+        <button
+          className="brand"
+          type="button"
+          aria-label="剪定AIアシスタント ホームへ"
+          onClick={() => onNavigate("home")}
+        >
           <span className="brand__mark">
             <Icon name="scissors" size={21} />
           </span>
           <span>剪定AIアシスタント</span>
-        </a>
+        </button>
         <div className="app-header__actions">
           <nav className="view-navigation" aria-label="画面切り替え">
             <button
@@ -272,6 +299,51 @@ function AppHeader({
         </div>
       </div>
     </header>
+  );
+}
+
+function HomePage({ onOpenPlants }: { onOpenPlants: () => void }) {
+  return (
+    <main className="app-main home-page">
+      <section className="intro home-page__intro" aria-labelledby="home-title">
+        <div className="intro__copy">
+          <span className="eyebrow">PRUNING GUIDE</span>
+          <h1 id="home-title">調べ方を選んでください</h1>
+          <p>庭木に合った剪定情報を、分かる方法から探せます。</p>
+        </div>
+        <div className="intro__art" aria-hidden="true">
+          <span className="intro__art-ring" />
+          <Icon name="leaf" size={72} />
+        </div>
+      </section>
+
+      <section className="home-options" aria-label="植物の調べ方">
+        <button className="home-option" type="button" onClick={onOpenPlants}>
+          <span className="home-option__icon"><Icon name="leaf" size={28} /></span>
+          <span className="home-option__copy">
+            <strong>植物名から選ぶ</strong>
+            <span>植物名を検索して、剪定情報を確認します。</span>
+          </span>
+          <span className="home-option__arrow" aria-hidden="true">→</span>
+        </button>
+
+        <button
+          className="home-option home-option--disabled"
+          type="button"
+          disabled
+          aria-describedby="photo-search-description"
+        >
+          <span className="home-option__icon"><Icon name="camera" size={28} /></span>
+          <span className="home-option__copy">
+            <span className="home-option__title-row">
+              <strong>写真から調べる</strong>
+              <small>準備中</small>
+            </span>
+            <span id="photo-search-description">写真から植物の候補を調べます。現在は利用できません。</span>
+          </span>
+        </button>
+      </section>
+    </main>
   );
 }
 
@@ -490,7 +562,8 @@ function AnalysisResult({ diagnosis }: { diagnosis: string }) {
 }
 
 function App() {
-  const [activeView, setActiveView] = useState<AppView>("plants");
+  const [route, setRoute] = useState<AppRoute>(homeRoute);
+  const [plantQuery, setPlantQuery] = useState("");
   const [treeName, setTreeName] = useState("");
   const [strength, setStrength] = useState<PruningStrength>("軽剪定");
   const [concerns, setConcerns] = useState("");
@@ -507,6 +580,31 @@ function App() {
   }, []);
 
   photosRef.current = photos;
+
+  useEffect(() => {
+    window.history.replaceState({ pruningAssistantRoute: homeRoute }, "");
+
+    const handlePopState = (event: PopStateEvent) => {
+      setRoute(readRoute(event.state));
+      window.scrollTo({ top: 0 });
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigate = (nextRoute: AppRoute) => {
+    if (route.view === nextRoute.view && route.plantId === nextRoute.plantId) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    window.history.pushState({ pruningAssistantRoute: nextRoute }, "");
+    setRoute(nextRoute);
+    window.scrollTo({ top: 0 });
+  };
+
+  const navigateToView = (view: AppView) => navigate({ view });
 
   const handlePhotos = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []).filter((file) =>
@@ -578,10 +676,19 @@ function App() {
 
   return (
     <div className="app-shell" id="top">
-      <AppHeader activeView={activeView} onNavigate={setActiveView} />
+      <AppHeader activeView={route.view} onNavigate={navigateToView} />
 
-      {activeView === "plants" ? (
-        <PlantListPage />
+      {route.view === "home" ? (
+        <HomePage onOpenPlants={() => navigateToView("plants")} />
+      ) : route.view === "plants" ? (
+        <PlantListPage
+          onBackHome={() => navigateToView("home")}
+          onBackToList={() => window.history.back()}
+          onQueryChange={setPlantQuery}
+          onSelectPlant={(plantId) => navigate({ view: "plants", plantId })}
+          query={plantQuery}
+          selectedPlantId={route.plantId}
+        />
       ) : (
         <main className="app-main">
         <section className="intro">
