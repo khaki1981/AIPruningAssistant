@@ -234,6 +234,7 @@ type AppRoute = {
   view: AppView;
   plantId?: string;
   plantConfirmation?: boolean;
+  plantGuidance?: boolean;
 };
 
 const homeRoute: AppRoute = { view: "home" };
@@ -244,8 +245,9 @@ function readRoute(value: unknown): AppRoute {
   const route = (value as { pruningAssistantRoute?: unknown }).pruningAssistantRoute;
   if (typeof route !== "object" || route === null) return homeRoute;
 
-  const { plantConfirmation, plantId, view } = route as {
+  const { plantConfirmation, plantGuidance, plantId, view } = route as {
     plantConfirmation?: unknown;
+    plantGuidance?: unknown;
     plantId?: unknown;
     view?: unknown;
   };
@@ -255,7 +257,14 @@ function readRoute(value: unknown): AppRoute {
     view,
     plantId: view === "plants" && typeof plantId === "string" ? plantId : undefined,
     plantConfirmation:
-      view === "plants" && typeof plantId === "string" && plantConfirmation === true
+      view === "plants" &&
+      typeof plantId === "string" &&
+      plantConfirmation === true &&
+      plantGuidance !== true
+        ? true
+        : undefined,
+    plantGuidance:
+      view === "plants" && typeof plantId === "string" && plantGuidance === true
         ? true
         : undefined,
   };
@@ -596,7 +605,10 @@ function App() {
 
     const handlePopState = (event: PopStateEvent) => {
       const nextRoute = readRoute(event.state);
-      if (nextRoute.plantConfirmation && nextRoute.plantId) {
+      if (
+        (nextRoute.plantConfirmation || nextRoute.plantGuidance) &&
+        nextRoute.plantId
+      ) {
         setConfirmedPlantId(nextRoute.plantId);
       }
       setRoute(nextRoute);
@@ -611,7 +623,8 @@ function App() {
     if (
       route.view === nextRoute.view &&
       route.plantId === nextRoute.plantId &&
-      route.plantConfirmation === nextRoute.plantConfirmation
+      route.plantConfirmation === nextRoute.plantConfirmation &&
+      route.plantGuidance === nextRoute.plantGuidance
     ) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -707,14 +720,22 @@ function App() {
         <PlantListPage
           confirmedPlantId={confirmedPlantId}
           isConfirmation={route.plantConfirmation === true}
+          isGuidance={route.plantGuidance === true}
           onBackHome={() => navigateToView("home")}
+          onBackToConfirmation={() => window.history.back()}
           onBackToList={() => window.history.back()}
           onChooseAgain={() => navigate({ view: "plants" })}
           onConfirmPlant={confirmPlant}
           onQueryChange={setPlantQuery}
           onSelectPlant={(plantId) => navigate({ view: "plants", plantId })}
+          onViewGuidance={() => {
+            if (!confirmedPlantId) return;
+            navigate({ view: "plants", plantId: confirmedPlantId, plantGuidance: true });
+          }}
           query={plantQuery}
-          selectedPlantId={route.plantConfirmation ? undefined : route.plantId}
+          selectedPlantId={
+            route.plantConfirmation || route.plantGuidance ? undefined : route.plantId
+          }
         />
       ) : (
         <main className="app-main">

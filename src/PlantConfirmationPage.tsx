@@ -4,9 +4,14 @@ import type { Plant } from "./types/plant";
 interface PlantConfirmationPageProps {
   plant: Plant;
   onChooseAgain: () => void;
+  onViewGuidance: () => void;
 }
 
-function PlantConfirmationPage({ plant, onChooseAgain }: PlantConfirmationPageProps) {
+function PlantConfirmationPage({
+  plant,
+  onChooseAgain,
+  onViewGuidance,
+}: PlantConfirmationPageProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -28,14 +33,20 @@ function PlantConfirmationPage({ plant, onChooseAgain }: PlantConfirmationPagePr
         <p className="plant-confirmation__message">
           この植物を剪定対象として使用します。
         </p>
-        <button
-          className="plant-confirmation__choose-again"
-          type="button"
-          onClick={onChooseAgain}
-        >
-          <span aria-hidden="true">←</span>
-          植物を選び直す
-        </button>
+        <div className="plant-confirmation__actions">
+          <button className="primary-button" type="button" onClick={onViewGuidance}>
+            現在の剪定案内を見る
+            <span aria-hidden="true">→</span>
+          </button>
+          <button
+            className="plant-confirmation__choose-again"
+            type="button"
+            onClick={onChooseAgain}
+          >
+            <span aria-hidden="true">←</span>
+            植物を選び直す
+          </button>
+        </div>
       </section>
     </main>
   );

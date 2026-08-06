@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import CurrentPruningGuidancePage from "./CurrentPruningGuidancePage";
 import PlantConfirmationPage from "./PlantConfirmationPage";
 import PlantDetailPage from "./PlantDetailPage";
 import { loadPlants } from "./data/loadPlants";
@@ -30,10 +31,13 @@ function getReviewStatus(status: PlantReviewStatus) {
 interface PlantListPageProps {
   confirmedPlantId?: string;
   isConfirmation: boolean;
+  isGuidance: boolean;
   onBackHome: () => void;
+  onBackToConfirmation: () => void;
   onBackToList: () => void;
   onChooseAgain: () => void;
   onConfirmPlant: (plantId: string) => void;
+  onViewGuidance: () => void;
   onQueryChange: (query: string) => void;
   onSelectPlant: (plantId: string) => void;
   query: string;
@@ -43,10 +47,13 @@ interface PlantListPageProps {
 function PlantListPage({
   confirmedPlantId,
   isConfirmation,
+  isGuidance,
   onBackHome,
+  onBackToConfirmation,
   onBackToList,
   onChooseAgain,
   onConfirmPlant,
+  onViewGuidance,
   onQueryChange,
   onSelectPlant,
   query,
@@ -69,7 +76,7 @@ function PlantListPage({
   const confirmedPlant = plants.find((plant) => plant.id === confirmedPlantId);
 
   useEffect(() => {
-    if (isConfirmation) return;
+    if (isConfirmation || isGuidance) return;
 
     if (selectedPlant) {
       previousPlantId.current = selectedPlant.id;
@@ -87,7 +94,7 @@ function PlantListPage({
         ?.focus({ preventScroll: true });
       window.scrollTo({ top: listScrollPosition.current });
     });
-  }, [isConfirmation, selectedPlant]);
+  }, [isConfirmation, isGuidance, selectedPlant]);
 
   const openPlantDetail = (plantId: string) => {
     listScrollPosition.current = window.scrollY;
@@ -98,8 +105,24 @@ function PlantListPage({
     onBackToList();
   };
 
+  if (isGuidance && confirmedPlant) {
+    return (
+      <CurrentPruningGuidancePage
+        plant={confirmedPlant}
+        onBack={onBackToConfirmation}
+        onChooseAgain={onChooseAgain}
+      />
+    );
+  }
+
   if (isConfirmation && confirmedPlant) {
-    return <PlantConfirmationPage plant={confirmedPlant} onChooseAgain={onChooseAgain} />;
+    return (
+      <PlantConfirmationPage
+        plant={confirmedPlant}
+        onChooseAgain={onChooseAgain}
+        onViewGuidance={onViewGuidance}
+      />
+    );
   }
 
   if (selectedPlant) {
