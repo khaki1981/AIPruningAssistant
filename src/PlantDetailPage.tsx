@@ -4,6 +4,7 @@ import type { Plant, PlantReviewStatus } from "./types/plant";
 interface PlantDetailPageProps {
   plant: Plant;
   onBack: () => void;
+  onConfirm: () => void;
 }
 
 function hasText(value: string | undefined): value is string {
@@ -87,7 +88,7 @@ function CalendarRow({ label, months }: { label: string; months: number[] }) {
   );
 }
 
-function PlantDetailPage({ plant, onBack }: PlantDetailPageProps) {
+function PlantDetailPage({ plant, onBack, onConfirm }: PlantDetailPageProps) {
   const status = getReviewStatus(plant.reviewStatus);
   const aliases = plant.aliases.filter(hasText);
   const basicNotes = plant.basicData.notes.filter(hasText);
@@ -243,6 +244,18 @@ function PlantDetailPage({ plant, onBack }: PlantDetailPageProps) {
           </DetailSection>
         )}
       </div>
+
+      <section className="plant-confirm-action" aria-labelledby="plant-confirm-action-title">
+        <div>
+          <span className="eyebrow">CONFIRM PLANT</span>
+          <h2 id="plant-confirm-action-title">剪定する植物を決める</h2>
+          <p>詳細を確認し、この植物を剪定対象として使用する場合は確定してください。</p>
+        </div>
+        <button className="primary-button plant-confirm-action__button" type="button" onClick={onConfirm}>
+          この植物で確認する
+          <span aria-hidden="true">→</span>
+        </button>
+      </section>
     </main>
   );
 }

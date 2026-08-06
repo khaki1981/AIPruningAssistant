@@ -233,6 +233,7 @@ type AppView = "home" | "diagnosis" | "plants";
 type AppRoute = {
   view: AppView;
   plantId?: string;
+  plantConfirmation?: boolean;
 };
 
 const homeRoute: AppRoute = { view: "home" };
@@ -243,12 +244,20 @@ function readRoute(value: unknown): AppRoute {
   const route = (value as { pruningAssistantRoute?: unknown }).pruningAssistantRoute;
   if (typeof route !== "object" || route === null) return homeRoute;
 
-  const { plantId, view } = route as { plantId?: unknown; view?: unknown };
+  const { plantConfirmation, plantId, view } = route as {
+    plantConfirmation?: unknown;
+    plantId?: unknown;
+    view?: unknown;
+  };
   if (view !== "home" && view !== "plants" && view !== "diagnosis") return homeRoute;
 
   return {
     view,
     plantId: view === "plants" && typeof plantId === "string" ? plantId : undefined,
+    plantConfirmation:
+      view === "plants" && typeof plantId === "string" && plantConfirmation === true
+        ? true
+        : undefined,
   };
 }
 
@@ -564,6 +573,7 @@ function AnalysisResult({ diagnosis }: { diagnosis: string }) {
 function App() {
   const [route, setRoute] = useState<AppRoute>(homeRoute);
   const [plantQuery, setPlantQuery] = useState("");
+  const [confirmedPlantId, setConfirmedPlantId] = useState<string>();
   const [treeName, setTreeName] = useState("");
   const [strength, setStrength] = useState<PruningStrength>("軽剪定");
   const [concerns, setConcerns] = useState("");
@@ -585,7 +595,11 @@ function App() {
     window.history.replaceState({ pruningAssistantRoute: homeRoute }, "");
 
     const handlePopState = (event: PopStateEvent) => {
-      setRoute(readRoute(event.state));
+      const nextRoute = readRoute(event.state);
+      if (nextRoute.plantConfirmation && nextRoute.plantId) {
+        setConfirmedPlantId(nextRoute.plantId);
+      }
+      setRoute(nextRoute);
       window.scrollTo({ top: 0 });
     };
 
@@ -594,7 +608,11 @@ function App() {
   }, []);
 
   const navigate = (nextRoute: AppRoute) => {
-    if (route.view === nextRoute.view && route.plantId === nextRoute.plantId) {
+    if (
+      route.view === nextRoute.view &&
+      route.plantId === nextRoute.plantId &&
+      route.plantConfirmation === nextRoute.plantConfirmation
+    ) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -605,6 +623,11 @@ function App() {
   };
 
   const navigateToView = (view: AppView) => navigate({ view });
+
+  const confirmPlant = (plantId: string) => {
+    setConfirmedPlantId(plantId);
+    navigate({ view: "plants", plantId, plantConfirmation: true });
+  };
 
   const handlePhotos = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []).filter((file) =>
@@ -682,12 +705,16 @@ function App() {
         <HomePage onOpenPlants={() => navigateToView("plants")} />
       ) : route.view === "plants" ? (
         <PlantListPage
+          confirmedPlantId={confirmedPlantId}
+          isConfirmation={route.plantConfirmation === true}
           onBackHome={() => navigateToView("home")}
           onBackToList={() => window.history.back()}
+          onChooseAgain={() => navigate({ view: "plants" })}
+          onConfirmPlant={confirmPlant}
           onQueryChange={setPlantQuery}
           onSelectPlant={(plantId) => navigate({ view: "plants", plantId })}
           query={plantQuery}
-          selectedPlantId={route.plantId}
+          selectedPlantId={route.plantConfirmation ? undefined : route.plantId}
         />
       ) : (
         <main className="app-main">

@@ -1574,6 +1574,123 @@ textarea:focus {
   border: 0;
 }
 
+.plant-confirm-action {
+  display: grid;
+  min-width: 0;
+  margin-top: 18px;
+  padding: 24px;
+  gap: 22px;
+  border: 1px solid #b8d4c0;
+  border-radius: var(--radius-card);
+  background: var(--color-primary-light);
+  box-shadow: var(--shadow-card);
+}
+
+.plant-confirm-action h2 {
+  margin: 6px 0 8px;
+  color: var(--color-text-strong);
+  font-family: "Shippori Mincho", "Yu Mincho", serif;
+  font-size: clamp(1.25rem, 5vw, 1.65rem);
+  overflow-wrap: anywhere;
+}
+
+.plant-confirm-action p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.75;
+}
+
+.plant-confirm-action__button {
+  min-width: 0;
+}
+
+.plant-confirmation {
+  display: grid;
+  min-width: 0;
+  min-height: calc(100vh - 92px);
+  place-items: center;
+}
+
+.plant-confirmation__card {
+  width: min(100%, 680px);
+  padding: 32px 20px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.plant-confirmation__icon {
+  display: inline-flex;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 16px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-primary);
+  border-radius: 50%;
+  color: white;
+  background: var(--color-primary);
+  font-size: 1.65rem;
+  font-weight: 700;
+}
+
+.plant-confirmation .eyebrow {
+  margin: 0 0 8px;
+}
+
+.plant-confirmation h1 {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-family: "Shippori Mincho", "Yu Mincho", serif;
+  font-size: clamp(1.55rem, 7vw, 2.25rem);
+  line-height: 1.35;
+}
+
+.plant-confirmation h1:focus {
+  outline: 0;
+}
+
+.plant-confirmation__name {
+  margin: 28px 0 0;
+  color: var(--color-primary-strong);
+  font-family: "Shippori Mincho", "Yu Mincho", serif;
+  font-size: clamp(1.8rem, 10vw, 3rem);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.plant-confirmation__message {
+  margin: 12px 0 28px;
+  color: var(--color-text-muted);
+  line-height: 1.8;
+}
+
+.plant-confirmation__choose-again {
+  display: inline-flex;
+  width: 100%;
+  min-height: 50px;
+  padding: 11px 18px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-primary-strong);
+  background: white;
+  font-weight: 700;
+  transition: border-color 160ms, background 160ms, box-shadow 160ms;
+}
+
+.plant-confirmation__choose-again:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.plant-confirmation__choose-again:focus-visible {
+  outline: 0;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
 @media (min-width: 600px) {
   .app-main {
     width: min(1120px, calc(100% - 40px));
@@ -1621,6 +1738,21 @@ textarea:focus {
   .plant-calendar__row {
     padding: 14px 16px;
     grid-template-columns: 140px minmax(0, 1fr);
+  }
+
+  .plant-confirm-action {
+    padding: 30px;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 0.55fr);
+    align-items: center;
+  }
+
+  .plant-confirmation__card {
+    padding: 48px 42px;
+  }
+
+  .plant-confirmation__choose-again {
+    width: auto;
+    min-width: 220px;
   }
 
   .pruning-options {

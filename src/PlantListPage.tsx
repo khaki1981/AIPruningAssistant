@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import PlantConfirmationPage from "./PlantConfirmationPage";
 import PlantDetailPage from "./PlantDetailPage";
 import { loadPlants } from "./data/loadPlants";
 import type { PlantReviewStatus } from "./types/plant";
@@ -6,7 +7,13 @@ import type { PlantReviewStatus } from "./types/plant";
 const plants = loadPlants();
 
 function normalizeSearchText(value: string) {
-  return value.trim().toLocaleLowerCase("ja-JP");
+  return value
+    .trim()
+    .normalize("NFKC")
+    .toLocaleLowerCase("ja-JP")
+    .replace(/[ぁ-ゖ]/g, (character) =>
+      String.fromCharCode(character.charCodeAt(0) + 0x60),
+    );
 }
 
 function getReviewStatus(status: PlantReviewStatus) {
@@ -21,8 +28,12 @@ function getReviewStatus(status: PlantReviewStatus) {
 }
 
 interface PlantListPageProps {
+  confirmedPlantId?: string;
+  isConfirmation: boolean;
   onBackHome: () => void;
   onBackToList: () => void;
+  onChooseAgain: () => void;
+  onConfirmPlant: (plantId: string) => void;
   onQueryChange: (query: string) => void;
   onSelectPlant: (plantId: string) => void;
   query: string;
@@ -30,8 +41,12 @@ interface PlantListPageProps {
 }
 
 function PlantListPage({
+  confirmedPlantId,
+  isConfirmation,
   onBackHome,
   onBackToList,
+  onChooseAgain,
+  onConfirmPlant,
   onQueryChange,
   onSelectPlant,
   query,
@@ -51,8 +66,11 @@ function PlantListPage({
   }, [normalizedQuery]);
 
   const selectedPlant = plants.find((plant) => plant.id === selectedPlantId);
+  const confirmedPlant = plants.find((plant) => plant.id === confirmedPlantId);
 
   useEffect(() => {
+    if (isConfirmation) return;
+
     if (selectedPlant) {
       previousPlantId.current = selectedPlant.id;
       window.scrollTo({ top: 0 });
@@ -69,7 +87,7 @@ function PlantListPage({
         ?.focus({ preventScroll: true });
       window.scrollTo({ top: listScrollPosition.current });
     });
-  }, [selectedPlant]);
+  }, [isConfirmation, selectedPlant]);
 
   const openPlantDetail = (plantId: string) => {
     listScrollPosition.current = window.scrollY;
@@ -80,8 +98,18 @@ function PlantListPage({
     onBackToList();
   };
 
+  if (isConfirmation && confirmedPlant) {
+    return <PlantConfirmationPage plant={confirmedPlant} onChooseAgain={onChooseAgain} />;
+  }
+
   if (selectedPlant) {
-    return <PlantDetailPage plant={selectedPlant} onBack={returnToList} />;
+    return (
+      <PlantDetailPage
+        plant={selectedPlant}
+        onBack={returnToList}
+        onConfirm={() => onConfirmPlant(selectedPlant.id)}
+      />
+    );
   }
 
   return (
