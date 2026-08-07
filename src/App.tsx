@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import AuthPage from "./AuthPage";
 import type { AuthMode } from "./AuthPage";
+import MyPlantsPage from "./MyPlantsPage";
 import PlantListPage from "./PlantListPage";
 import { useAuth } from "./auth/AuthContext";
 import type { PruningStrength, UploadedPhoto } from "./types";
@@ -231,7 +232,7 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   );
 }
 
-type AppView = "home" | "diagnosis" | "plants" | "auth";
+type AppView = "home" | "diagnosis" | "plants" | "my-plants" | "auth";
 
 type AppRoute = {
   view: AppView;
@@ -259,6 +260,7 @@ function readRoute(value: unknown): AppRoute {
   if (
     view !== "home" &&
     view !== "plants" &&
+    view !== "my-plants" &&
     view !== "diagnosis" &&
     view !== "auth"
   ) {
@@ -323,6 +325,16 @@ function AppHeader({
             >
               植物を調べる
             </button>
+            {email && (
+              <button
+                className={activeView === "my-plants" ? "is-active" : ""}
+                type="button"
+                aria-current={activeView === "my-plants" ? "page" : undefined}
+                onClick={() => onNavigate("my-plants")}
+              >
+                自分の植物
+              </button>
+            )}
             <button
               className={activeView === "diagnosis" ? "is-active" : ""}
               type="button"
@@ -807,9 +819,22 @@ function App() {
           onBackHome={() => navigateToView("home")}
           onModeChange={(authMode) => navigate({ view: "auth", authMode })}
         />
+      ) : route.view === "my-plants" ? (
+        <MyPlantsPage
+          isAuthInitializing={isAuthInitializing}
+          onBackHome={() => navigateToView("home")}
+          onLogin={() => navigate({ view: "auth" })}
+          onViewDetails={(plantId) => navigate({ view: "plants", plantId })}
+          onViewGuidance={(plantId) => {
+            setConfirmedPlantId(plantId);
+            navigate({ view: "plants", plantId, plantGuidance: true });
+          }}
+          userId={user?.id}
+        />
       ) : route.view === "plants" ? (
         <PlantListPage
           confirmedPlantId={confirmedPlantId}
+          isAuthInitializing={isAuthInitializing}
           isConfirmation={route.plantConfirmation === true}
           isGuidance={route.plantGuidance === true}
           onBackHome={() => navigateToView("home")}
@@ -817,6 +842,7 @@ function App() {
           onBackToList={() => window.history.back()}
           onChooseAgain={() => navigate({ view: "plants" })}
           onConfirmPlant={confirmPlant}
+          onLogin={() => navigate({ view: "auth" })}
           onQueryChange={setPlantQuery}
           onSelectPlant={(plantId) => navigate({ view: "plants", plantId })}
           onViewGuidance={() => {
@@ -827,6 +853,7 @@ function App() {
           selectedPlantId={
             route.plantConfirmation || route.plantGuidance ? undefined : route.plantId
           }
+          userId={user?.id}
         />
       ) : (
         <main className="app-main">

@@ -1,10 +1,15 @@
-import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { createUserPlant } from "./data/userPlants";
 import type { Plant, PlantReviewStatus } from "./types/plant";
 
 interface PlantDetailPageProps {
+  isAuthInitializing: boolean;
+  onLogin: () => void;
   plant: Plant;
   onBack: () => void;
   onConfirm: () => void;
+  userId?: string;
 }
 
 function hasText(value: string | undefined): value is string {
@@ -88,7 +93,19 @@ function CalendarRow({ label, months }: { label: string; months: number[] }) {
   );
 }
 
-function PlantDetailPage({ plant, onBack, onConfirm }: PlantDetailPageProps) {
+function PlantDetailPage({
+  isAuthInitializing,
+  onLogin,
+  plant,
+  onBack,
+  onConfirm,
+  userId,
+}: PlantDetailPageProps) {
+  const [nickname, setNickname] = useState("");
+  const [registrationMessage, setRegistrationMessage] = useState("");
+  const [registrationError, setRegistrationError] = useState("");
+  const [showLoginNotice, setShowLoginNotice] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const status = getReviewStatus(plant.reviewStatus);
   const aliases = plant.aliases.filter(hasText);
   const basicNotes = plant.basicData.notes.filter(hasText);
@@ -120,6 +137,44 @@ function PlantDetailPage({ plant, onBack, onConfirm }: PlantDetailPageProps) {
       ? "未確認"
       : plant.pruning.flowerBudType
     : undefined;
+
+  useEffect(() => {
+    setNickname("");
+    setRegistrationMessage("");
+    setRegistrationError("");
+    setShowLoginNotice(false);
+    setIsRegistering(false);
+  }, [plant.id]);
+
+  const handleRegistration = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setRegistrationMessage("");
+    setRegistrationError("");
+
+    if (!userId) {
+      setShowLoginNotice(true);
+      return;
+    }
+
+    setIsRegistering(true);
+    try {
+      const registered = await createUserPlant({
+        userId,
+        plantId: plant.id,
+        nickname,
+      });
+      setRegistrationMessage(
+        `「${registered.nickname || plant.nameJa}」を自分の植物として登録しました。`,
+      );
+      setNickname("");
+    } catch (error) {
+      setRegistrationError(
+        error instanceof Error ? error.message : "登録に失敗しました。",
+      );
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   return (
     <main className="app-main plant-directory plant-detail">
@@ -255,6 +310,64 @@ function PlantDetailPage({ plant, onBack, onConfirm }: PlantDetailPageProps) {
           この植物で確認する
           <span aria-hidden="true">→</span>
         </button>
+      </section>
+
+      <section className="section-card plant-registration" aria-labelledby="plant-registration-title">
+        <div className="section-card__heading">
+          <span>MY PLANT</span>
+          <h2 id="plant-registration-title">自分の植物として登録</h2>
+          <p>
+            同じ樹種を複数登録できます。呼び名を空欄にすると「{plant.nameJa}」と表示します。
+          </p>
+        </div>
+
+        <form className="plant-registration__form" onSubmit={(event) => void handleRegistration(event)}>
+          {userId && (
+            <div className="field">
+              <label htmlFor={`plant-nickname-${plant.id}`}>呼び名（任意）</label>
+              <input
+                id={`plant-nickname-${plant.id}`}
+                type="text"
+                maxLength={100}
+                placeholder={`例：玄関の${plant.nameJa}`}
+                value={nickname}
+                onChange={(event) => setNickname(event.target.value)}
+                disabled={isRegistering}
+              />
+              <small>{nickname.length}/100文字</small>
+            </div>
+          )}
+
+          <button
+            className="primary-button plant-registration__button"
+            type="submit"
+            disabled={isAuthInitializing || isRegistering}
+          >
+            {isAuthInitializing
+              ? "ログイン状態を確認中…"
+              : isRegistering
+                ? "登録中…"
+                : "自分の植物として登録"}
+          </button>
+        </form>
+
+        {showLoginNotice && !userId && (
+          <div className="plant-registration__notice" role="note">
+            <strong>登録にはログインが必要です</strong>
+            <p>ログインまたは新規登録後に、もう一度この植物を登録してください。</p>
+            <button type="button" onClick={onLogin}>ログイン・新規登録へ</button>
+          </div>
+        )}
+        {registrationMessage && (
+          <p className="plant-registration__feedback plant-registration__feedback--success" role="status">
+            {registrationMessage}
+          </p>
+        )}
+        {registrationError && (
+          <p className="plant-registration__feedback plant-registration__feedback--error" role="alert">
+            {registrationError}
+          </p>
+        )}
       </section>
     </main>
   );
