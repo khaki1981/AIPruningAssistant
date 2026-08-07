@@ -1,0 +1,8 @@
+[context.production.environment]
+  VITE_PLANT_DATA_VISIBILITY = "verified"
+
+[context.deploy-preview.environment]
+  VITE_PLANT_DATA_VISIBILITY = "all"
+
+[context.branch-deploy.environment]
+  VITE_PLANT_DATA_VISIBILITY = "verified"

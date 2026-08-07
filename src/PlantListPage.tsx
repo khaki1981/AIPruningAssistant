@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import CurrentPruningGuidancePage from "./CurrentPruningGuidancePage";
+import PlantConfirmationPage from "./PlantConfirmationPage";
 import PlantDetailPage from "./PlantDetailPage";
 import { loadPlants } from "./data/loadPlants";
 import type { PlantReviewStatus } from "./types/plant";
@@ -6,7 +8,13 @@ import type { PlantReviewStatus } from "./types/plant";
 const plants = loadPlants();
 
 function normalizeSearchText(value: string) {
-  return value.trim().toLocaleLowerCase("ja-JP");
+  return value
+    .trim()
+    .normalize("NFKC")
+    .toLocaleLowerCase("ja-JP")
+    .replace(/[ぁ-ゖ]/g, (character) =>
+      String.fromCharCode(character.charCodeAt(0) + 0x60),
+    );
 }
 
 function getReviewStatus(status: PlantReviewStatus) {
@@ -20,10 +28,39 @@ function getReviewStatus(status: PlantReviewStatus) {
   }
 }
 
-function PlantListPage() {
-  const [query, setQuery] = useState("");
-  const [selectedPlantId, setSelectedPlantId] = useState<string>();
+interface PlantListPageProps {
+  confirmedPlantId?: string;
+  isConfirmation: boolean;
+  isGuidance: boolean;
+  onBackHome: () => void;
+  onBackToConfirmation: () => void;
+  onBackToList: () => void;
+  onChooseAgain: () => void;
+  onConfirmPlant: (plantId: string) => void;
+  onViewGuidance: () => void;
+  onQueryChange: (query: string) => void;
+  onSelectPlant: (plantId: string) => void;
+  query: string;
+  selectedPlantId?: string;
+}
+
+function PlantListPage({
+  confirmedPlantId,
+  isConfirmation,
+  isGuidance,
+  onBackHome,
+  onBackToConfirmation,
+  onBackToList,
+  onChooseAgain,
+  onConfirmPlant,
+  onViewGuidance,
+  onQueryChange,
+  onSelectPlant,
+  query,
+  selectedPlantId,
+}: PlantListPageProps) {
   const listScrollPosition = useRef(0);
+  const previousPlantId = useRef<string>();
   const normalizedQuery = normalizeSearchText(query);
   const filteredPlants = useMemo(() => {
     if (!normalizedQuery) return plants;
@@ -36,35 +73,75 @@ function PlantListPage() {
   }, [normalizedQuery]);
 
   const selectedPlant = plants.find((plant) => plant.id === selectedPlantId);
+  const confirmedPlant = plants.find((plant) => plant.id === confirmedPlantId);
 
   useEffect(() => {
-    if (selectedPlant) window.scrollTo({ top: 0 });
-  }, [selectedPlant]);
+    if (isConfirmation || isGuidance) return;
+
+    if (selectedPlant) {
+      previousPlantId.current = selectedPlant.id;
+      window.scrollTo({ top: 0 });
+      return;
+    }
+
+    const plantId = previousPlantId.current;
+    if (!plantId) return;
+
+    previousPlantId.current = undefined;
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`plant-detail-button-${plantId}`)
+        ?.focus({ preventScroll: true });
+      window.scrollTo({ top: listScrollPosition.current });
+    });
+  }, [isConfirmation, isGuidance, selectedPlant]);
 
   const openPlantDetail = (plantId: string) => {
     listScrollPosition.current = window.scrollY;
-    setSelectedPlantId(plantId);
+    onSelectPlant(plantId);
   };
 
   const returnToList = () => {
-    const plantId = selectedPlantId;
-    setSelectedPlantId(undefined);
-    window.requestAnimationFrame(() => {
-      if (plantId) {
-        document
-          .getElementById(`plant-detail-button-${plantId}`)
-          ?.focus({ preventScroll: true });
-      }
-      window.scrollTo({ top: listScrollPosition.current });
-    });
+    onBackToList();
   };
 
+  if (isGuidance && confirmedPlant) {
+    return (
+      <CurrentPruningGuidancePage
+        plant={confirmedPlant}
+        onBack={onBackToConfirmation}
+        onChooseAgain={onChooseAgain}
+      />
+    );
+  }
+
+  if (isConfirmation && confirmedPlant) {
+    return (
+      <PlantConfirmationPage
+        plant={confirmedPlant}
+        onChooseAgain={onChooseAgain}
+        onViewGuidance={onViewGuidance}
+      />
+    );
+  }
+
   if (selectedPlant) {
-    return <PlantDetailPage plant={selectedPlant} onBack={returnToList} />;
+    return (
+      <PlantDetailPage
+        plant={selectedPlant}
+        onBack={returnToList}
+        onConfirm={() => onConfirmPlant(selectedPlant.id)}
+      />
+    );
   }
 
   return (
     <main className="app-main plant-directory">
+      <button className="plant-detail__back" type="button" onClick={onBackHome}>
+        <span aria-hidden="true">←</span>
+        ホームへ戻る
+      </button>
+
       <section className="intro plant-directory__intro">
         <div className="intro__copy">
           <span className="eyebrow">PLANT DIRECTORY</span>
@@ -87,7 +164,7 @@ function PlantListPage() {
             type="search"
             placeholder="例：ウメ、梅、Hydrangea"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => onQueryChange(event.target.value)}
           />
         </div>
 

@@ -1,6 +1,9 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import AuthPage from "./AuthPage";
+import type { AuthMode } from "./AuthPage";
 import PlantListPage from "./PlantListPage";
+import { useAuth } from "./auth/AuthContext";
 import type { PruningStrength, UploadedPhoto } from "./types";
 
 const pruningOptions: PruningStrength[] = [
@@ -228,24 +231,88 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   );
 }
 
-type AppView = "diagnosis" | "plants";
+type AppView = "home" | "diagnosis" | "plants" | "auth";
+
+type AppRoute = {
+  view: AppView;
+  authMode?: AuthMode;
+  plantId?: string;
+  plantConfirmation?: boolean;
+  plantGuidance?: boolean;
+};
+
+const homeRoute: AppRoute = { view: "home" };
+
+function readRoute(value: unknown): AppRoute {
+  if (typeof value !== "object" || value === null) return homeRoute;
+
+  const route = (value as { pruningAssistantRoute?: unknown }).pruningAssistantRoute;
+  if (typeof route !== "object" || route === null) return homeRoute;
+
+  const { authMode, plantConfirmation, plantGuidance, plantId, view } = route as {
+    authMode?: unknown;
+    plantConfirmation?: unknown;
+    plantGuidance?: unknown;
+    plantId?: unknown;
+    view?: unknown;
+  };
+  if (
+    view !== "home" &&
+    view !== "plants" &&
+    view !== "diagnosis" &&
+    view !== "auth"
+  ) {
+    return homeRoute;
+  }
+
+  return {
+    view,
+    authMode:
+      view === "auth" && authMode === "sign-up" ? "sign-up" : undefined,
+    plantId: view === "plants" && typeof plantId === "string" ? plantId : undefined,
+    plantConfirmation:
+      view === "plants" &&
+      typeof plantId === "string" &&
+      plantConfirmation === true &&
+      plantGuidance !== true
+        ? true
+        : undefined,
+    plantGuidance:
+      view === "plants" && typeof plantId === "string" && plantGuidance === true
+        ? true
+        : undefined,
+  };
+}
 
 function AppHeader({
   activeView,
+  email,
+  isAuthInitializing,
+  isAuthSubmitting,
   onNavigate,
+  onSignOut,
 }: {
   activeView: AppView;
+  email?: string;
+  isAuthInitializing: boolean;
+  isAuthSubmitting: boolean;
   onNavigate: (view: AppView) => void;
+  onSignOut: () => void;
 }) {
   return (
     <header className="app-header">
       <div className="app-header__inner">
-        <a className="brand" href="#top" aria-label="剪定AIアシスタント トップへ">
+        <button
+          className="brand"
+          type="button"
+          aria-label="剪定AIアシスタント ホームへ"
+          onClick={() => onNavigate("home")}
+        >
           <span className="brand__mark">
             <Icon name="scissors" size={21} />
           </span>
           <span>剪定AIアシスタント</span>
-        </a>
+        </button>
         <div className="app-header__actions">
           <nav className="view-navigation" aria-label="画面切り替え">
             <button
@@ -265,13 +332,78 @@ function AppHeader({
               AI診断
             </button>
           </nav>
-          <span className="app-header__tag">
-            <Icon name="leaf" size={16} />
-            安全重視
-          </span>
+          <div className="account-navigation" aria-live="polite">
+            {isAuthInitializing ? (
+              <span className="account-navigation__status">ログイン確認中</span>
+            ) : email ? (
+              <>
+                <span className="account-navigation__status" title={email}>
+                  <span>ログイン中</span>
+                  <strong>{email}</strong>
+                </span>
+                <button type="button" onClick={onSignOut} disabled={isAuthSubmitting}>
+                  {isAuthSubmitting ? "処理中…" : "ログアウト"}
+                </button>
+              </>
+            ) : (
+              <button
+                className={activeView === "auth" ? "is-active" : ""}
+                type="button"
+                aria-current={activeView === "auth" ? "page" : undefined}
+                onClick={() => onNavigate("auth")}
+              >
+                ログイン・新規登録
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </header>
+  );
+}
+
+function HomePage({ onOpenPlants }: { onOpenPlants: () => void }) {
+  return (
+    <main className="app-main home-page">
+      <section className="intro home-page__intro" aria-labelledby="home-title">
+        <div className="intro__copy">
+          <span className="eyebrow">PRUNING GUIDE</span>
+          <h1 id="home-title">調べ方を選んでください</h1>
+          <p>庭木に合った剪定情報を、分かる方法から探せます。</p>
+        </div>
+        <div className="intro__art" aria-hidden="true">
+          <span className="intro__art-ring" />
+          <Icon name="leaf" size={72} />
+        </div>
+      </section>
+
+      <section className="home-options" aria-label="植物の調べ方">
+        <button className="home-option" type="button" onClick={onOpenPlants}>
+          <span className="home-option__icon"><Icon name="leaf" size={28} /></span>
+          <span className="home-option__copy">
+            <strong>植物名から選ぶ</strong>
+            <span>植物名を検索して、剪定情報を確認します。</span>
+          </span>
+          <span className="home-option__arrow" aria-hidden="true">→</span>
+        </button>
+
+        <button
+          className="home-option home-option--disabled"
+          type="button"
+          disabled
+          aria-describedby="photo-search-description"
+        >
+          <span className="home-option__icon"><Icon name="camera" size={28} /></span>
+          <span className="home-option__copy">
+            <span className="home-option__title-row">
+              <strong>写真から調べる</strong>
+              <small>準備中</small>
+            </span>
+            <span id="photo-search-description">写真から植物の候補を調べます。現在は利用できません。</span>
+          </span>
+        </button>
+      </section>
+    </main>
   );
 }
 
@@ -490,7 +622,15 @@ function AnalysisResult({ diagnosis }: { diagnosis: string }) {
 }
 
 function App() {
-  const [activeView, setActiveView] = useState<AppView>("plants");
+  const {
+    isInitializing: isAuthInitializing,
+    isSubmitting: isAuthSubmitting,
+    signOut,
+    user,
+  } = useAuth();
+  const [route, setRoute] = useState<AppRoute>(homeRoute);
+  const [plantQuery, setPlantQuery] = useState("");
+  const [confirmedPlantId, setConfirmedPlantId] = useState<string>();
   const [treeName, setTreeName] = useState("");
   const [strength, setStrength] = useState<PruningStrength>("軽剪定");
   const [concerns, setConcerns] = useState("");
@@ -507,6 +647,77 @@ function App() {
   }, []);
 
   photosRef.current = photos;
+
+  useEffect(() => {
+    window.history.replaceState({ pruningAssistantRoute: homeRoute }, "");
+
+    const handlePopState = (event: PopStateEvent) => {
+      const nextRoute = readRoute(event.state);
+      if (
+        (nextRoute.plantConfirmation || nextRoute.plantGuidance) &&
+        nextRoute.plantId
+      ) {
+        setConfirmedPlantId(nextRoute.plantId);
+      }
+      setRoute(nextRoute);
+      window.scrollTo({ top: 0 });
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigate = (nextRoute: AppRoute) => {
+    if (
+      route.view === nextRoute.view &&
+      route.authMode === nextRoute.authMode &&
+      route.plantId === nextRoute.plantId &&
+      route.plantConfirmation === nextRoute.plantConfirmation &&
+      route.plantGuidance === nextRoute.plantGuidance
+    ) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    window.history.pushState({ pruningAssistantRoute: nextRoute }, "");
+    setRoute(nextRoute);
+    window.scrollTo({ top: 0 });
+  };
+
+  const navigateToView = (view: AppView) => navigate({ view });
+
+  const resetTransientAppState = () => {
+    photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.url));
+    setPhotos([]);
+    setPlantQuery("");
+    setConfirmedPlantId(undefined);
+    setTreeName("");
+    setStrength("軽剪定");
+    setConcerns("");
+    setDiagnosis("");
+    setErrorMessage("");
+    setIsLoading(false);
+  };
+
+  const finishAuthentication = () => {
+    resetTransientAppState();
+    navigate(homeRoute);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      resetTransientAppState();
+      navigate(homeRoute);
+    } catch {
+      navigate({ view: "auth" });
+    }
+  };
+
+  const confirmPlant = (plantId: string) => {
+    setConfirmedPlantId(plantId);
+    navigate({ view: "plants", plantId, plantConfirmation: true });
+  };
 
   const handlePhotos = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []).filter((file) =>
@@ -578,10 +789,45 @@ function App() {
 
   return (
     <div className="app-shell" id="top">
-      <AppHeader activeView={activeView} onNavigate={setActiveView} />
+      <AppHeader
+        activeView={route.view}
+        email={user?.email}
+        isAuthInitializing={isAuthInitializing}
+        isAuthSubmitting={isAuthSubmitting}
+        onNavigate={navigateToView}
+        onSignOut={() => void handleSignOut()}
+      />
 
-      {activeView === "plants" ? (
-        <PlantListPage />
+      {route.view === "home" ? (
+        <HomePage onOpenPlants={() => navigateToView("plants")} />
+      ) : route.view === "auth" ? (
+        <AuthPage
+          mode={route.authMode ?? "sign-in"}
+          onAuthenticated={finishAuthentication}
+          onBackHome={() => navigateToView("home")}
+          onModeChange={(authMode) => navigate({ view: "auth", authMode })}
+        />
+      ) : route.view === "plants" ? (
+        <PlantListPage
+          confirmedPlantId={confirmedPlantId}
+          isConfirmation={route.plantConfirmation === true}
+          isGuidance={route.plantGuidance === true}
+          onBackHome={() => navigateToView("home")}
+          onBackToConfirmation={() => window.history.back()}
+          onBackToList={() => window.history.back()}
+          onChooseAgain={() => navigate({ view: "plants" })}
+          onConfirmPlant={confirmPlant}
+          onQueryChange={setPlantQuery}
+          onSelectPlant={(plantId) => navigate({ view: "plants", plantId })}
+          onViewGuidance={() => {
+            if (!confirmedPlantId) return;
+            navigate({ view: "plants", plantId: confirmedPlantId, plantGuidance: true });
+          }}
+          query={plantQuery}
+          selectedPlantId={
+            route.plantConfirmation || route.plantGuidance ? undefined : route.plantId
+          }
+        />
       ) : (
         <main className="app-main">
         <section className="intro">
