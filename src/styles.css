@@ -115,7 +115,9 @@ p {
 .app-header__actions,
 .view-navigation {
   display: flex;
+  min-width: 0;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -1913,6 +1915,190 @@ textarea:disabled {
   box-shadow: var(--focus-ring);
 }
 
+.plant-registration {
+  min-width: 0;
+  margin-top: 18px;
+}
+
+.plant-registration__form {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.plant-registration__form .field small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.plant-registration__button {
+  min-width: 0;
+}
+
+.plant-registration__notice,
+.plant-registration__feedback {
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-small);
+  overflow-wrap: anywhere;
+}
+
+.plant-registration__notice {
+  border: 1px solid #b9d5df;
+  background: var(--color-info-bg);
+}
+
+.plant-registration__notice p {
+  margin: 6px 0 12px;
+  line-height: 1.7;
+}
+
+.plant-registration__notice button,
+.my-plant-card__actions > button {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 9px 14px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-primary-strong);
+  background: white;
+  font-weight: 700;
+}
+
+.plant-registration__notice button:hover,
+.plant-registration__notice button:focus-visible,
+.my-plant-card__actions > button:hover,
+.my-plant-card__actions > button:focus-visible {
+  border-color: var(--color-primary);
+  outline: 0;
+  background: var(--color-primary-light);
+  box-shadow: var(--focus-ring);
+}
+
+.plant-registration__feedback--success {
+  border: 1px solid #a9ceb5;
+  color: var(--color-primary-strong);
+  background: var(--color-primary-light);
+}
+
+.plant-registration__feedback--error {
+  border: 1px solid #d9aaa4;
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.my-plants-page {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.my-plants-page__intro {
+  min-height: 240px;
+}
+
+.my-plants-list {
+  min-width: 0;
+  margin-top: 18px;
+}
+
+.my-plants-login {
+  max-width: 680px;
+  margin: 36px auto 0;
+  text-align: center;
+}
+
+.my-plants-login h1 {
+  color: var(--color-text-strong);
+  font-family: "Shippori Mincho", "Yu Mincho", serif;
+  font-size: clamp(1.45rem, 7vw, 2rem);
+  line-height: 1.5;
+}
+
+.my-plants-login p:not(.eyebrow) {
+  line-height: 1.75;
+}
+
+.my-plants-login .primary-button {
+  max-width: 320px;
+  margin: 22px auto 0;
+}
+
+.my-plants-state {
+  min-height: 160px;
+}
+
+.my-plant-grid {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.my-plant-card {
+  display: flex;
+  min-width: 0;
+  padding: 18px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-warm);
+}
+
+.my-plant-card h3 {
+  margin: 5px 0 0;
+  color: var(--color-text-strong);
+  font-family: "Shippori Mincho", "Yu Mincho", serif;
+  font-size: 1.25rem;
+}
+
+.my-plant-card__species,
+.my-plant-card__date,
+.my-plant-card__unavailable {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.my-plant-card__date {
+  margin-top: 10px;
+}
+
+.my-plant-card__actions {
+  display: grid;
+  min-width: 0;
+  gap: 9px;
+}
+
+.my-plant-card__actions > button {
+  width: 100%;
+}
+
+.my-plant-card__actions > .primary-button {
+  min-height: 48px;
+  border: 0;
+  color: white;
+  background: var(--color-primary);
+}
+
+.my-plant-card__actions > .primary-button:hover,
+.my-plant-card__actions > .primary-button:focus-visible {
+  color: white;
+  background: var(--color-primary-hover);
+}
+
+.my-plant-card__unavailable {
+  padding: 12px;
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+}
+
 .current-guidance {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -2215,6 +2401,19 @@ textarea:disabled {
     padding: 30px;
     grid-template-columns: minmax(0, 1fr) minmax(240px, 0.55fr);
     align-items: center;
+  }
+
+  .plant-registration__form {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.45fr);
+    align-items: end;
+  }
+
+  .plant-registration__button {
+    margin-bottom: 24px;
+  }
+
+  .my-plant-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .plant-confirmation__card {

@@ -30,6 +30,7 @@ function getReviewStatus(status: PlantReviewStatus) {
 
 interface PlantListPageProps {
   confirmedPlantId?: string;
+  isAuthInitializing: boolean;
   isConfirmation: boolean;
   isGuidance: boolean;
   onBackHome: () => void;
@@ -37,15 +38,18 @@ interface PlantListPageProps {
   onBackToList: () => void;
   onChooseAgain: () => void;
   onConfirmPlant: (plantId: string) => void;
+  onLogin: () => void;
   onViewGuidance: () => void;
   onQueryChange: (query: string) => void;
   onSelectPlant: (plantId: string) => void;
   query: string;
   selectedPlantId?: string;
+  userId?: string;
 }
 
 function PlantListPage({
   confirmedPlantId,
+  isAuthInitializing,
   isConfirmation,
   isGuidance,
   onBackHome,
@@ -53,11 +57,13 @@ function PlantListPage({
   onBackToList,
   onChooseAgain,
   onConfirmPlant,
+  onLogin,
   onViewGuidance,
   onQueryChange,
   onSelectPlant,
   query,
   selectedPlantId,
+  userId,
 }: PlantListPageProps) {
   const listScrollPosition = useRef(0);
   const previousPlantId = useRef<string>();
@@ -128,9 +134,12 @@ function PlantListPage({
   if (selectedPlant) {
     return (
       <PlantDetailPage
+        isAuthInitializing={isAuthInitializing}
         plant={selectedPlant}
         onBack={returnToList}
         onConfirm={() => onConfirmPlant(selectedPlant.id)}
+        onLogin={onLogin}
+        userId={userId}
       />
     );
   }
