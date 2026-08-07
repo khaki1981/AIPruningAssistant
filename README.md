@@ -31,6 +31,10 @@ npm run build
 
 Supabase認証をローカルで利用する場合は、[Supabase認証セットアップ](docs/supabase-auth-setup.md)も参照してください。
 
+## 植物データの表示範囲
+
+ローカル開発とNetlify Deploy Previewでは全植物を表示し、本番とbranch deployでは`reviewStatus`が`verified`の植物だけを表示します。`VITE_PLANT_DATA_VISIBILITY`は表示範囲を切り替える公開設定であり、秘密情報ではありません。表示確認のために植物JSONの`reviewStatus`を変更しないでください。
+
 ## 現在の機能
 
 - 木の写真を複数選択してプレビュー表示

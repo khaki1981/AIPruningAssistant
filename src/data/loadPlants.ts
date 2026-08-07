@@ -231,8 +231,11 @@ const allPlants = Object.entries(plantModules)
       left.nameJa.localeCompare(right.nameJa, "ja") || left.id.localeCompare(right.id),
   );
 
-export function loadPlants(isProduction = import.meta.env.PROD) {
-  return isProduction
-    ? allPlants.filter((plant) => plant.reviewStatus === "verified")
-    : [...allPlants];
+const showUnverifiedPlants =
+  import.meta.env.DEV || import.meta.env.VITE_PLANT_DATA_VISIBILITY === "all";
+
+export function loadPlants(includeUnverified = showUnverifiedPlants) {
+  return includeUnverified
+    ? [...allPlants]
+    : allPlants.filter((plant) => plant.reviewStatus === "verified");
 }
