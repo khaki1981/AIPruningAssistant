@@ -1,6 +1,9 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import AuthPage from "./AuthPage";
+import type { AuthMode } from "./AuthPage";
 import PlantListPage from "./PlantListPage";
+import { useAuth } from "./auth/AuthContext";
 import type { PruningStrength, UploadedPhoto } from "./types";
 
 const pruningOptions: PruningStrength[] = [
@@ -228,10 +231,11 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   );
 }
 
-type AppView = "home" | "diagnosis" | "plants";
+type AppView = "home" | "diagnosis" | "plants" | "auth";
 
 type AppRoute = {
   view: AppView;
+  authMode?: AuthMode;
   plantId?: string;
   plantConfirmation?: boolean;
   plantGuidance?: boolean;
@@ -245,16 +249,26 @@ function readRoute(value: unknown): AppRoute {
   const route = (value as { pruningAssistantRoute?: unknown }).pruningAssistantRoute;
   if (typeof route !== "object" || route === null) return homeRoute;
 
-  const { plantConfirmation, plantGuidance, plantId, view } = route as {
+  const { authMode, plantConfirmation, plantGuidance, plantId, view } = route as {
+    authMode?: unknown;
     plantConfirmation?: unknown;
     plantGuidance?: unknown;
     plantId?: unknown;
     view?: unknown;
   };
-  if (view !== "home" && view !== "plants" && view !== "diagnosis") return homeRoute;
+  if (
+    view !== "home" &&
+    view !== "plants" &&
+    view !== "diagnosis" &&
+    view !== "auth"
+  ) {
+    return homeRoute;
+  }
 
   return {
     view,
+    authMode:
+      view === "auth" && authMode === "sign-up" ? "sign-up" : undefined,
     plantId: view === "plants" && typeof plantId === "string" ? plantId : undefined,
     plantConfirmation:
       view === "plants" &&
@@ -272,10 +286,18 @@ function readRoute(value: unknown): AppRoute {
 
 function AppHeader({
   activeView,
+  email,
+  isAuthInitializing,
+  isAuthSubmitting,
   onNavigate,
+  onSignOut,
 }: {
   activeView: AppView;
+  email?: string;
+  isAuthInitializing: boolean;
+  isAuthSubmitting: boolean;
   onNavigate: (view: AppView) => void;
+  onSignOut: () => void;
 }) {
   return (
     <header className="app-header">
@@ -310,10 +332,30 @@ function AppHeader({
               AI診断
             </button>
           </nav>
-          <span className="app-header__tag">
-            <Icon name="leaf" size={16} />
-            安全重視
-          </span>
+          <div className="account-navigation" aria-live="polite">
+            {isAuthInitializing ? (
+              <span className="account-navigation__status">ログイン確認中</span>
+            ) : email ? (
+              <>
+                <span className="account-navigation__status" title={email}>
+                  <span>ログイン中</span>
+                  <strong>{email}</strong>
+                </span>
+                <button type="button" onClick={onSignOut} disabled={isAuthSubmitting}>
+                  {isAuthSubmitting ? "処理中…" : "ログアウト"}
+                </button>
+              </>
+            ) : (
+              <button
+                className={activeView === "auth" ? "is-active" : ""}
+                type="button"
+                aria-current={activeView === "auth" ? "page" : undefined}
+                onClick={() => onNavigate("auth")}
+              >
+                ログイン・新規登録
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </header>
@@ -580,6 +622,12 @@ function AnalysisResult({ diagnosis }: { diagnosis: string }) {
 }
 
 function App() {
+  const {
+    isInitializing: isAuthInitializing,
+    isSubmitting: isAuthSubmitting,
+    signOut,
+    user,
+  } = useAuth();
   const [route, setRoute] = useState<AppRoute>(homeRoute);
   const [plantQuery, setPlantQuery] = useState("");
   const [confirmedPlantId, setConfirmedPlantId] = useState<string>();
@@ -622,6 +670,7 @@ function App() {
   const navigate = (nextRoute: AppRoute) => {
     if (
       route.view === nextRoute.view &&
+      route.authMode === nextRoute.authMode &&
       route.plantId === nextRoute.plantId &&
       route.plantConfirmation === nextRoute.plantConfirmation &&
       route.plantGuidance === nextRoute.plantGuidance
@@ -636,6 +685,34 @@ function App() {
   };
 
   const navigateToView = (view: AppView) => navigate({ view });
+
+  const resetTransientAppState = () => {
+    photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.url));
+    setPhotos([]);
+    setPlantQuery("");
+    setConfirmedPlantId(undefined);
+    setTreeName("");
+    setStrength("軽剪定");
+    setConcerns("");
+    setDiagnosis("");
+    setErrorMessage("");
+    setIsLoading(false);
+  };
+
+  const finishAuthentication = () => {
+    resetTransientAppState();
+    navigate(homeRoute);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      resetTransientAppState();
+      navigate(homeRoute);
+    } catch {
+      navigate({ view: "auth" });
+    }
+  };
 
   const confirmPlant = (plantId: string) => {
     setConfirmedPlantId(plantId);
@@ -712,10 +789,24 @@ function App() {
 
   return (
     <div className="app-shell" id="top">
-      <AppHeader activeView={route.view} onNavigate={navigateToView} />
+      <AppHeader
+        activeView={route.view}
+        email={user?.email}
+        isAuthInitializing={isAuthInitializing}
+        isAuthSubmitting={isAuthSubmitting}
+        onNavigate={navigateToView}
+        onSignOut={() => void handleSignOut()}
+      />
 
       {route.view === "home" ? (
         <HomePage onOpenPlants={() => navigateToView("plants")} />
+      ) : route.view === "auth" ? (
+        <AuthPage
+          mode={route.authMode ?? "sign-in"}
+          onAuthenticated={finishAuthentication}
+          onBackHome={() => navigateToView("home")}
+          onModeChange={(authMode) => navigate({ view: "auth", authMode })}
+        />
       ) : route.view === "plants" ? (
         <PlantListPage
           confirmedPlantId={confirmedPlantId}

@@ -119,6 +119,12 @@ p {
   gap: 8px;
 }
 
+.app-header__actions {
+  width: 100%;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
 .view-navigation button {
   min-height: 38px;
   padding: 7px 11px;
@@ -141,6 +147,60 @@ p {
 .view-navigation button.is-active {
   color: white;
   background: var(--color-primary);
+}
+
+.account-navigation {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.account-navigation button {
+  min-height: 40px;
+  padding: 7px 11px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  color: var(--color-primary-strong);
+  background: white;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.account-navigation button:hover:not(:disabled),
+.account-navigation button:focus-visible {
+  border-color: var(--color-primary);
+  outline: 0;
+  background: var(--color-primary-light);
+  box-shadow: var(--focus-ring);
+}
+
+.account-navigation button.is-active {
+  color: white;
+  background: var(--color-primary);
+}
+
+.account-navigation button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.account-navigation__status {
+  display: grid;
+  min-width: 0;
+  max-width: 180px;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.account-navigation__status strong {
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand {
@@ -602,6 +662,8 @@ p {
 
 input[type="text"],
 input[type="search"],
+input[type="email"],
+input[type="password"],
 textarea {
   width: 100%;
   border: 1px solid var(--color-border-strong);
@@ -614,7 +676,9 @@ textarea {
 }
 
 input[type="text"],
-input[type="search"] {
+input[type="search"],
+input[type="email"],
+input[type="password"] {
   min-height: 52px;
   padding: 0 14px;
 }
@@ -628,12 +692,16 @@ textarea {
 
 input[type="text"]::placeholder,
 input[type="search"]::placeholder,
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
 textarea::placeholder {
   color: #707b74;
 }
 
 input[type="text"]:focus,
 input[type="search"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
 textarea:focus {
   border-color: var(--color-primary);
   background: white;
@@ -1574,6 +1642,153 @@ textarea:focus {
   border: 0;
 }
 
+input:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.field > small {
+  display: block;
+  margin-top: 7px;
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.auth-page {
+  min-width: 0;
+}
+
+.auth-card {
+  width: min(100%, 580px);
+  margin: 0 auto;
+  padding: 24px 18px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.auth-card--loading {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-text-muted);
+}
+
+.auth-card--loading p {
+  margin: 0;
+}
+
+.auth-spinner {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: 3px solid rgba(46, 125, 79, 0.2);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 760ms linear infinite;
+}
+
+.auth-card__heading {
+  margin-bottom: 24px;
+}
+
+.auth-card h1 {
+  margin: 8px 0 10px;
+  color: var(--color-text-strong);
+  font-family: "Shippori Mincho", serif;
+  font-size: clamp(1.7rem, 8vw, 2.3rem);
+  line-height: 1.35;
+}
+
+.auth-card__heading p,
+.auth-card__description {
+  margin-bottom: 0;
+  color: var(--color-text-muted);
+  line-height: 1.75;
+}
+
+.auth-card__description + .auth-message {
+  margin-top: 20px;
+}
+
+.auth-message {
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid;
+  border-radius: var(--radius-control);
+  line-height: 1.65;
+}
+
+.auth-message strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.9rem;
+}
+
+.auth-message p {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.auth-message--error {
+  border-color: #e7b7b0;
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.auth-message--success {
+  border-color: #bfd7c6;
+  color: var(--color-primary-strong);
+  background: var(--color-primary-light);
+}
+
+.auth-form__submit {
+  margin-top: 26px;
+}
+
+.auth-switch {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.auth-switch p {
+  margin-bottom: 8px;
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+}
+
+.auth-switch button {
+  min-height: 44px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--color-primary-strong);
+  background: transparent;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-switch button:hover:not(:disabled),
+.auth-switch button:focus-visible {
+  outline: 0;
+  background: var(--color-primary-light);
+  box-shadow: var(--focus-ring);
+}
+
+.auth-switch button:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+
 .plant-confirm-action {
   display: grid;
   min-width: 0;
@@ -1975,6 +2190,10 @@ textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .auth-card {
+    padding: 38px 36px;
+  }
+
   .home-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2051,6 +2270,10 @@ textarea:focus {
 @media (min-width: 900px) {
   .app-header__inner {
     min-height: 72px;
+  }
+
+  .app-header__actions {
+    width: auto;
   }
 
   .app-main {
