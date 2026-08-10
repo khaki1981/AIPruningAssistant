@@ -8,6 +8,7 @@ const visiblePlants = loadPlants();
 interface MyPlantsPageProps {
   isAuthInitializing: boolean;
   onBackHome: () => void;
+  onCreateRecord: (userPlantId: string) => void;
   onLogin: () => void;
   onViewDetails: (plantId: string) => void;
   onViewGuidance: (plantId: string) => void;
@@ -17,6 +18,7 @@ interface MyPlantsPageProps {
 function MyPlantsPage({
   isAuthInitializing,
   onBackHome,
+  onCreateRecord,
   onLogin,
   onViewDetails,
   onViewGuidance,
@@ -148,20 +150,29 @@ function MyPlantsPage({
                       登録日：{new Intl.DateTimeFormat("ja-JP").format(new Date(userPlant.createdAt))}
                     </p>
                   </div>
-                  {plant ? (
-                    <div className="my-plant-card__actions">
-                      <button type="button" onClick={() => onViewDetails(plant.id)}>
-                        植物詳細を見る
-                      </button>
-                      <button
-                        className="primary-button"
-                        type="button"
-                        onClick={() => onViewGuidance(plant.id)}
-                      >
-                        現在の剪定案内
-                      </button>
-                    </div>
-                  ) : (
+                  <div className="my-plant-card__actions">
+                    <button
+                      className="primary-button"
+                      type="button"
+                      onClick={() => onCreateRecord(userPlant.id)}
+                    >
+                      状態・作業を記録する
+                    </button>
+                    {plant && (
+                      <>
+                        <button type="button" onClick={() => onViewDetails(plant.id)}>
+                          植物詳細を見る
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onViewGuidance(plant.id)}
+                        >
+                          現在の剪定案内
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {!plant && (
                     <p className="my-plant-card__unavailable">
                       公開条件を満たしていないため、詳細と剪定案内は表示できません。
                     </p>

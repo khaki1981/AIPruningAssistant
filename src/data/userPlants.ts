@@ -50,6 +50,28 @@ export async function listUserPlants(): Promise<UserPlant[]> {
   return (data as UserPlantRow[]).map(toUserPlant);
 }
 
+export async function getUserPlantById(input: {
+  userPlantId: string;
+  userId: string;
+}): Promise<UserPlant | null> {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("user_plants")
+    .select(userPlantColumns)
+    .eq("id", input.userPlantId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[user-plants] Fetch by ID failed", { code: error.code });
+    throw new Error(
+      "対象の植物を確認できませんでした。時間をおいてもう一度お試しください。",
+    );
+  }
+
+  return data ? toUserPlant(data as UserPlantRow) : null;
+}
+
 export async function createUserPlant(input: {
   userId: string;
   plantId: string;
