@@ -2099,6 +2099,225 @@ textarea:disabled {
   background: var(--color-surface);
 }
 
+.plant-care-page {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.plant-care-page__intro {
+  min-height: 260px;
+}
+
+.plant-care-identity {
+  display: grid;
+  max-width: 620px;
+  margin: 24px 0 0;
+  gap: 10px;
+}
+
+.plant-care-identity > div {
+  display: grid;
+  min-width: 0;
+  padding: 11px 13px;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  border-radius: var(--radius-small);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.plant-care-identity dt {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.plant-care-identity dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-strong);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.plant-care-form-card {
+  min-width: 0;
+  margin-top: 18px;
+}
+
+.plant-care-form {
+  display: grid;
+  min-width: 0;
+  gap: 24px;
+}
+
+.plant-care-form .field + .field {
+  margin-top: 0;
+}
+
+.plant-care-form .field > small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.plant-care-form input[type="date"] {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  outline: 0;
+  color: var(--color-text);
+  background: var(--color-surface-warm);
+  font: inherit;
+}
+
+.plant-care-form input[type="date"]:focus {
+  border-color: var(--color-primary);
+  background: white;
+  box-shadow: var(--focus-ring);
+}
+
+.plant-care-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.plant-care-fieldset legend {
+  margin-bottom: 5px;
+  color: var(--color-text-strong);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.plant-care-fieldset > p {
+  margin: 0 0 12px;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.plant-care-options {
+  display: grid;
+  min-width: 0;
+  gap: 9px;
+}
+
+.plant-care-option {
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  padding: 11px 13px;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-warm);
+  cursor: pointer;
+}
+
+.plant-care-option:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.plant-care-option:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.plant-care-option input {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.plant-care-option span {
+  min-width: 0;
+  color: var(--color-text-strong);
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.plant-care-fieldset:disabled .plant-care-option {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.plant-care-other-field {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-warm);
+}
+
+.plant-care-form .alert-box {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.plant-care-success {
+  padding: 16px;
+  border: 1px solid #a9ceb5;
+  border-radius: var(--radius-small);
+  color: var(--color-primary-strong);
+  background: var(--color-primary-light);
+}
+
+.plant-care-success p {
+  margin: 6px 0 14px;
+  line-height: 1.7;
+}
+
+.plant-care-success button {
+  min-height: 44px;
+  padding: 9px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-primary-strong);
+  background: white;
+  font-weight: 700;
+}
+
+.plant-care-success button:hover,
+.plant-care-success button:focus-visible {
+  border-color: var(--color-primary);
+  outline: 0;
+  background: var(--color-surface-warm);
+  box-shadow: var(--focus-ring);
+}
+
+.plant-care-submit {
+  width: 100%;
+}
+
+.plant-care-state {
+  min-height: 240px;
+}
+
+.plant-care-state-card {
+  max-width: 680px;
+  margin: 36px auto 0;
+}
+
+.plant-care-state-card h1 {
+  color: var(--color-text-strong);
+  font-family: "Shippori Mincho", "Yu Mincho", serif;
+  font-size: clamp(1.45rem, 7vw, 2rem);
+  line-height: 1.5;
+}
+
+.plant-care-state-card p:not(.eyebrow) {
+  margin-bottom: 0;
+  line-height: 1.75;
+}
+
 .current-guidance {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -2414,6 +2633,16 @@ textarea:disabled {
 
   .my-plant-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plant-care-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plant-care-submit {
+    width: auto;
+    min-width: 260px;
+    justify-self: end;
   }
 
   .plant-confirmation__card {
