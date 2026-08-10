@@ -10,6 +10,7 @@ interface MyPlantsPageProps {
   onBackHome: () => void;
   onCreateRecord: (userPlantId: string) => void;
   onLogin: () => void;
+  onViewHistory: (userPlantId: string) => void;
   onViewDetails: (plantId: string) => void;
   onViewGuidance: (plantId: string) => void;
   userId?: string;
@@ -20,6 +21,7 @@ function MyPlantsPage({
   onBackHome,
   onCreateRecord,
   onLogin,
+  onViewHistory,
   onViewDetails,
   onViewGuidance,
   userId,
@@ -157,6 +159,9 @@ function MyPlantsPage({
                       onClick={() => onCreateRecord(userPlant.id)}
                     >
                       状態・作業を記録する
+                    </button>
+                    <button type="button" onClick={() => onViewHistory(userPlant.id)}>
+                      過去の記録を見る
                     </button>
                     {plant && (
                       <>

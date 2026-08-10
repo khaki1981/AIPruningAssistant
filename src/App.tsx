@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import AuthPage from "./AuthPage";
 import type { AuthMode } from "./AuthPage";
+import MyPlantCareHistoryPage from "./MyPlantCareHistoryPage";
 import MyPlantCareRecordPage from "./MyPlantCareRecordPage";
 import MyPlantsPage from "./MyPlantsPage";
 import PlantListPage from "./PlantListPage";
@@ -239,6 +240,7 @@ type AppRoute = {
   view: AppView;
   authMode?: AuthMode;
   careFromMyPlants?: boolean;
+  careHistory?: boolean;
   plantId?: string;
   plantConfirmation?: boolean;
   plantGuidance?: boolean;
@@ -256,6 +258,7 @@ function readRoute(value: unknown): AppRoute {
   const {
     authMode,
     careFromMyPlants,
+    careHistory,
     plantConfirmation,
     plantGuidance,
     plantId,
@@ -264,6 +267,7 @@ function readRoute(value: unknown): AppRoute {
   } = route as {
     authMode?: unknown;
     careFromMyPlants?: unknown;
+    careHistory?: unknown;
     plantConfirmation?: unknown;
     plantGuidance?: unknown;
     plantId?: unknown;
@@ -290,6 +294,12 @@ function readRoute(value: unknown): AppRoute {
       careFromMyPlants === true
         ? true
         : undefined,
+    careHistory:
+      view === "my-plants" &&
+      typeof userPlantId === "string" &&
+      careHistory === true
+        ? true
+        : undefined,
     plantId: view === "plants" && typeof plantId === "string" ? plantId : undefined,
     plantConfirmation:
       view === "plants" &&
@@ -312,8 +322,15 @@ function readRoute(value: unknown): AppRoute {
 function readCareRouteFromLocation(): AppRoute | undefined {
   const parameters = new URLSearchParams(window.location.search);
   const userPlantId = parameters.get("userPlantId");
-  if (parameters.get("view") !== "plant-care" || !userPlantId) return undefined;
-  return { view: "my-plants", userPlantId };
+  const careView = parameters.get("view");
+  if (!userPlantId || (careView !== "plant-care" && careView !== "plant-care-history")) {
+    return undefined;
+  }
+  return {
+    view: "my-plants",
+    careHistory: careView === "plant-care-history" ? true : undefined,
+    userPlantId,
+  };
 }
 
 function getInitialRoute() {
@@ -327,7 +344,7 @@ function getRouteUrl(route: AppRoute) {
   url.searchParams.delete("view");
   url.searchParams.delete("userPlantId");
   if (route.view === "my-plants" && route.userPlantId) {
-    url.searchParams.set("view", "plant-care");
+    url.searchParams.set("view", route.careHistory ? "plant-care-history" : "plant-care");
     url.searchParams.set("userPlantId", route.userPlantId);
   }
   return `${url.pathname}${url.search}${url.hash}`;
@@ -740,6 +757,7 @@ function App() {
       route.view === nextRoute.view &&
       route.authMode === nextRoute.authMode &&
       route.careFromMyPlants === nextRoute.careFromMyPlants &&
+      route.careHistory === nextRoute.careHistory &&
       route.plantId === nextRoute.plantId &&
       route.plantConfirmation === nextRoute.plantConfirmation &&
       route.plantGuidance === nextRoute.plantGuidance &&
@@ -883,25 +901,52 @@ function App() {
         />
       ) : route.view === "my-plants" ? (
         route.userPlantId ? (
-          <MyPlantCareRecordPage
-            isAuthInitializing={isAuthInitializing}
-            onBackToMyPlants={() => {
-              if (route.careFromMyPlants) {
-                window.history.back();
-                return;
+          route.careHistory ? (
+            <MyPlantCareHistoryPage
+              isAuthInitializing={isAuthInitializing}
+              onBackToMyPlants={() => {
+                if (route.careFromMyPlants) {
+                  window.history.back();
+                  return;
+                }
+                navigate({ view: "my-plants" });
+              }}
+              onCreateRecord={(userPlantId) =>
+                navigate({ view: "my-plants", userPlantId })
               }
-              navigate({ view: "my-plants" });
-            }}
-            onLogin={() => navigate({ view: "auth" })}
-            userId={user?.id}
-            userPlantId={route.userPlantId}
-          />
+              onLogin={() => navigate({ view: "auth" })}
+              userId={user?.id}
+              userPlantId={route.userPlantId}
+            />
+          ) : (
+            <MyPlantCareRecordPage
+              isAuthInitializing={isAuthInitializing}
+              onBackToMyPlants={() => {
+                if (route.careFromMyPlants) {
+                  window.history.back();
+                  return;
+                }
+                navigate({ view: "my-plants" });
+              }}
+              onLogin={() => navigate({ view: "auth" })}
+              userId={user?.id}
+              userPlantId={route.userPlantId}
+            />
+          )
         ) : (
           <MyPlantsPage
             isAuthInitializing={isAuthInitializing}
             onBackHome={() => navigateToView("home")}
             onCreateRecord={(userPlantId) =>
               navigate({ view: "my-plants", userPlantId, careFromMyPlants: true })
+            }
+            onViewHistory={(userPlantId) =>
+              navigate({
+                view: "my-plants",
+                userPlantId,
+                careFromMyPlants: true,
+                careHistory: true,
+              })
             }
             onLogin={() => navigate({ view: "auth" })}
             onViewDetails={(plantId) => navigate({ view: "plants", plantId })}

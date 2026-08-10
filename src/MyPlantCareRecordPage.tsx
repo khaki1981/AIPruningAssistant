@@ -1,31 +1,16 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { createPlantCareRecord } from "./data/plantCareRecords";
+import {
+  createPlantCareRecord,
+  plantCareWorkOptions as workOptions,
+  plantConditionOptions as conditionOptions,
+} from "./data/plantCareRecords";
+import type {
+  PlantCareWorkCode as WorkTypeCode,
+  PlantConditionCode,
+} from "./data/plantCareRecords";
 import { loadPlants } from "./data/loadPlants";
 import { getUserPlantById } from "./data/userPlants";
 import type { UserPlant } from "./types/userPlant";
-
-const conditionOptions = [
-  { code: "healthy", label: "元気" },
-  { code: "new_growth", label: "新芽・新しい成長あり" },
-  { code: "leaf_discoloration", label: "葉の変色" },
-  { code: "wilting", label: "しおれている" },
-  { code: "pest_damage", label: "害虫の被害" },
-  { code: "disease_sign", label: "病気の兆候" },
-  { code: "other", label: "その他" },
-] as const;
-
-const workOptions = [
-  { code: "watering", label: "水やり" },
-  { code: "fertilizing", label: "肥料" },
-  { code: "pruning", label: "剪定" },
-  { code: "repotting", label: "植え替え" },
-  { code: "pest_control", label: "害虫対策" },
-  { code: "observation", label: "観察のみ" },
-  { code: "other", label: "その他" },
-] as const;
-
-type PlantConditionCode = (typeof conditionOptions)[number]["code"];
-type WorkTypeCode = (typeof workOptions)[number]["code"];
 
 const allPlants = loadPlants(true);
 const userPlantIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
