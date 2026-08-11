@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  deletePlantCareRecord,
   listPlantCareRecords,
   plantCareWorkOptions,
   plantConditionOptions,
@@ -22,9 +23,11 @@ interface MyPlantCareHistoryPageProps {
   isAuthInitializing: boolean;
   onBackToMyPlants: () => void;
   onCreateRecord: (userPlantId: string) => void;
+  onEditRecord: (userPlantId: string, recordId: string) => void;
   onLogin: () => void;
   userId?: string;
   userPlantId: string;
+  updatedMessage?: boolean;
 }
 
 function formatRecordDate(value: string) {
@@ -54,9 +57,11 @@ function MyPlantCareHistoryPage({
   isAuthInitializing,
   onBackToMyPlants,
   onCreateRecord,
+  onEditRecord,
   onLogin,
   userId,
   userPlantId,
+  updatedMessage,
 }: MyPlantCareHistoryPageProps) {
   const [userPlant, setUserPlant] = useState<UserPlant | null>(null);
   const [records, setRecords] = useState<PlantCareRecord[]>([]);
@@ -66,6 +71,9 @@ function MyPlantCareHistoryPage({
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
   const [recordLoadError, setRecordLoadError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [deletingRecordId, setDeletingRecordId] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteSuccess, setDeleteSuccess] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -76,6 +84,9 @@ function MyPlantCareHistoryPage({
     setRecordLoadError(false);
     setIsLoadingPlant(false);
     setIsLoadingRecords(false);
+    setDeletingRecordId("");
+    setDeleteError("");
+    setDeleteSuccess("");
 
     if (!userId) return;
     if (!userPlantIdPattern.test(userPlantId)) {
@@ -143,6 +154,48 @@ function MyPlantCareHistoryPage({
     setRecordLoadError(false);
     setIsLoadingRecords(true);
     setRetryKey((current) => current + 1);
+  };
+
+  const handleDelete = async (record: PlantCareRecord) => {
+    if (!userId || !userPlant || deletingRecordId) return;
+    setDeleteError("");
+    setDeleteSuccess("");
+
+    const displayDate = formatRecordDate(record.recordDate);
+    if (!window.confirm(`${displayDate}の記録を削除しますか？\nこの操作は取り消せません。`)) {
+      return;
+    }
+    if (!userPlantIdPattern.test(record.id)) {
+      setDeleteError(
+        "対象の記録が見つからないか、このアカウントでは利用できません",
+      );
+      return;
+    }
+
+    setDeletingRecordId(record.id);
+    try {
+      const wasDeleted = await deletePlantCareRecord({
+        recordId: record.id,
+        userId,
+        userPlantId: userPlant.id,
+      });
+      if (!wasDeleted) {
+        setDeleteError(
+          "対象の記録が見つからないか、このアカウントでは利用できません",
+        );
+        return;
+      }
+      setRecords((current) => current.filter((item) => item.id !== record.id));
+      setDeleteSuccess(`${displayDate}の記録を削除しました。`);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "記録を削除できませんでした。時間をおいてもう一度お試しください。",
+      );
+    } finally {
+      setDeletingRecordId("");
+    }
   };
 
   if (isAuthInitializing) {
@@ -240,6 +293,25 @@ function MyPlantCareHistoryPage({
           {!isLoadingRecords && !recordLoadError && records.length > 0 && <p>{records.length}件の記録があります。</p>}
         </div>
 
+        {updatedMessage && (
+          <div className="plant-care-success plant-care-history__feedback" role="status">
+            <strong>記録を更新しました。</strong>
+          </div>
+        )}
+        {deleteSuccess && (
+          <div className="plant-care-success plant-care-history__feedback" role="status">
+            <strong>{deleteSuccess}</strong>
+          </div>
+        )}
+        {deleteError && (
+          <div className="alert-box alert-box--error plant-care-history__feedback" role="alert">
+            <div>
+              <strong>削除に失敗しました</strong>
+              <p>{deleteError}</p>
+            </div>
+          </div>
+        )}
+
         {isLoadingRecords ? (
           <div className="loading-state plant-care-state" role="status">
             <span className="loading-spinner" aria-hidden="true" />
@@ -285,6 +357,23 @@ function MyPlantCareHistoryPage({
                     </div>
                     {memo && <div><dt>メモ</dt><dd className="plant-care-history-card__memo">{memo}</dd></div>}
                   </dl>
+                  <div className="plant-care-history-card__actions">
+                    <button
+                      type="button"
+                      disabled={Boolean(deletingRecordId)}
+                      onClick={() => onEditRecord(userPlant.id, record.id)}
+                    >
+                      編集する
+                    </button>
+                    <button
+                      className="plant-care-history-card__delete"
+                      type="button"
+                      disabled={Boolean(deletingRecordId)}
+                      onClick={() => void handleDelete(record)}
+                    >
+                      {deletingRecordId === record.id ? "削除中…" : "削除する"}
+                    </button>
+                  </div>
                 </article>
               );
             })}

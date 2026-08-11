@@ -1,8 +1,10 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   createPlantCareRecord,
+  getPlantCareRecord,
   plantCareWorkOptions as workOptions,
   plantConditionOptions as conditionOptions,
+  updatePlantCareRecord,
 } from "./data/plantCareRecords";
 import type {
   PlantCareWorkCode as WorkTypeCode,
@@ -44,6 +46,8 @@ interface MyPlantCareRecordPageProps {
   isAuthInitializing: boolean;
   onBackToMyPlants: () => void;
   onLogin: () => void;
+  onUpdated?: (userPlantId: string) => void;
+  recordId?: string;
   userId?: string;
   userPlantId: string;
 }
@@ -52,6 +56,8 @@ function MyPlantCareRecordPage({
   isAuthInitializing,
   onBackToMyPlants,
   onLogin,
+  onUpdated,
+  recordId,
   userId,
   userPlantId,
 }: MyPlantCareRecordPageProps) {
@@ -71,27 +77,64 @@ function MyPlantCareRecordPage({
   const [isSaving, setIsSaving] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const today = getLocalDateValue();
+  const isEditing = recordId !== undefined;
 
   useEffect(() => {
     setUserPlant(null);
     setPlantLoadError("");
     setIsPlantUnavailable(false);
     setIsLoadingPlant(false);
+    setRecordDate(getLocalDateValue());
+    setPlantCondition("");
+    setConditionOther("");
+    setWorkTypes([]);
+    setWorkOther("");
+    setMemo("");
+    setValidationError("");
+    setSaveError("");
+    setSuccessMessage("");
 
     if (!userId) return;
-    if (!userPlantIdPattern.test(userPlantId)) {
+    if (
+      !userPlantIdPattern.test(userPlantId) ||
+      (isEditing && (!recordId || !userPlantIdPattern.test(recordId)))
+    ) {
       setIsPlantUnavailable(true);
       return;
     }
 
     let isCurrent = true;
     setIsLoadingPlant(true);
-    void getUserPlantById({ userPlantId, userId })
-      .then((item) => {
+    void Promise.all([
+      getUserPlantById({ userPlantId, userId }),
+      isEditing && recordId
+        ? getPlantCareRecord({ recordId, userPlantId, userId })
+        : Promise.resolve(null),
+    ])
+      .then(([item, record]) => {
         if (!isCurrent) return;
-        if (!item) {
+        if (!item || (isEditing && !record)) {
           setIsPlantUnavailable(true);
           return;
+        }
+
+        if (record) {
+          const condition = conditionOptions.find(
+            (option) => option.code === record.plantCondition,
+          )?.code;
+          const works = record.workTypes.map(
+            (code) => workOptions.find((option) => option.code === code)?.code,
+          );
+          if (!condition || works.length === 0 || works.some((code) => !code)) {
+            setIsPlantUnavailable(true);
+            return;
+          }
+          setRecordDate(record.recordDate);
+          setPlantCondition(condition);
+          setConditionOther(record.conditionOther ?? "");
+          setWorkTypes(works as WorkTypeCode[]);
+          setWorkOther(record.workOther ?? "");
+          setMemo(record.memo ?? "");
         }
         setUserPlant(item);
       })
@@ -110,7 +153,7 @@ function MyPlantCareRecordPage({
     return () => {
       isCurrent = false;
     };
-  }, [userId, userPlantId]);
+  }, [isEditing, recordId, userId, userPlantId]);
 
   useEffect(() => {
     if (userPlant) headingRef.current?.focus();
@@ -151,7 +194,11 @@ function MyPlantCareRecordPage({
       return;
     }
     if (!userPlant || userPlant.userId !== userId || userPlant.id !== userPlantId) {
-      setSaveError("対象の植物が見つからないか、このアカウントでは利用できません。");
+      setSaveError(
+        isEditing
+          ? "対象の記録が見つからないか、このアカウントでは利用できません"
+          : "対象の植物が見つからないか、このアカウントでは利用できません。",
+      );
       return;
     }
 
@@ -204,7 +251,7 @@ function MyPlantCareRecordPage({
 
     setIsSaving(true);
     try {
-      await createPlantCareRecord({
+      const input = {
         userPlantId: userPlant.id,
         userId,
         recordDate,
@@ -213,7 +260,20 @@ function MyPlantCareRecordPage({
         workTypes: uniqueWorkTypes,
         workOther: uniqueWorkTypes.includes("other") ? trimmedWorkOther : null,
         memo: trimmedMemo || null,
-      });
+      };
+      if (isEditing && recordId) {
+        const wasUpdated = await updatePlantCareRecord({ ...input, recordId });
+        if (!wasUpdated) {
+          setSaveError(
+            "対象の記録が見つからないか、このアカウントでは利用できません",
+          );
+          return;
+        }
+        onUpdated?.(userPlant.id);
+        return;
+      }
+
+      await createPlantCareRecord(input);
       setRecordDate(getLocalDateValue());
       setPlantCondition("");
       setConditionOther("");
@@ -252,7 +312,7 @@ function MyPlantCareRecordPage({
         </button>
         <section className="section-card my-plants-login" aria-labelledby="plant-care-login-title">
           <p className="eyebrow">CARE RECORD</p>
-          <h1 id="plant-care-login-title">記録の保存にはログインが必要です</h1>
+          <h1 id="plant-care-login-title">{isEditing ? "記録の編集" : "記録の保存"}にはログインが必要です</h1>
           <p>ログイン後、自分の植物からもう一度記録画面を開いてください。</p>
           <button className="primary-button" type="button" onClick={onLogin}>
             ログイン・新規登録へ
@@ -267,7 +327,7 @@ function MyPlantCareRecordPage({
       <main className="app-main plant-care-page">
         <div className="loading-state plant-care-state" role="status">
           <span className="loading-spinner" aria-hidden="true" />
-          <strong>対象の植物を確認しています</strong>
+          <strong>{isEditing ? "対象の記録" : "対象の植物"}を確認しています</strong>
         </div>
       </main>
     );
@@ -282,10 +342,12 @@ function MyPlantCareRecordPage({
         </button>
         <section className="section-card plant-care-state-card" aria-labelledby="plant-care-unavailable-title">
           <p className="eyebrow">CARE RECORD</p>
-          <h1 id="plant-care-unavailable-title">記録する植物を確認できませんでした</h1>
+          <h1 id="plant-care-unavailable-title">{isEditing ? "記録を編集できません" : "記録する植物を確認できませんでした"}</h1>
           <p>
             {plantLoadError ||
-              "対象の植物が見つからないか、このアカウントでは利用できません。"}
+              (isEditing
+                ? "対象の記録が見つからないか、このアカウントでは利用できません"
+                : "対象の植物が見つからないか、このアカウントでは利用できません。")}
           </p>
         </section>
       </main>
@@ -299,14 +361,14 @@ function MyPlantCareRecordPage({
     <main className="app-main plant-care-page">
       <button className="plant-detail__back" type="button" onClick={onBackToMyPlants}>
         <span aria-hidden="true">←</span>
-        自分の植物一覧へ戻る
+        {isEditing ? "過去の記録へ戻る" : "自分の植物一覧へ戻る"}
       </button>
 
       <section className="intro plant-care-page__intro" aria-labelledby="plant-care-title">
         <div className="intro__copy">
           <span className="eyebrow">CARE RECORD</span>
           <h1 id="plant-care-title" ref={headingRef} tabIndex={-1}>
-            状態・作業を記録する
+            {isEditing ? "記録を編集する" : "状態・作業を記録する"}
           </h1>
           <dl className="plant-care-identity">
             <div>
@@ -323,9 +385,9 @@ function MyPlantCareRecordPage({
 
       <section className="section-card plant-care-form-card" aria-labelledby="plant-care-form-title">
         <div className="section-card__heading">
-          <span>NEW RECORD</span>
-          <h2 id="plant-care-form-title">新しい記録</h2>
-          <p>現在の状態と、行った作業を入力してください。</p>
+          <span>{isEditing ? "EDIT RECORD" : "NEW RECORD"}</span>
+          <h2 id="plant-care-form-title">{isEditing ? "記録内容の編集" : "新しい記録"}</h2>
+          <p>{isEditing ? "保存済みの内容を変更できます。" : "現在の状態と、行った作業を入力してください。"}</p>
         </div>
 
         <form className="plant-care-form" onSubmit={(event) => void handleSubmit(event)} noValidate>
@@ -450,7 +512,7 @@ function MyPlantCareRecordPage({
           {saveError && (
             <div className="alert-box alert-box--error" role="alert">
               <div>
-                <strong>保存に失敗しました</strong>
+                <strong>{isEditing ? "更新に失敗しました" : "保存に失敗しました"}</strong>
                 <p>{saveError}</p>
               </div>
             </div>
@@ -466,7 +528,7 @@ function MyPlantCareRecordPage({
           )}
 
           <button className="primary-button plant-care-submit" type="submit" disabled={isSaving}>
-            {isSaving ? "保存中…" : "記録を保存する"}
+            {isSaving ? (isEditing ? "更新中…" : "保存中…") : (isEditing ? "変更を保存する" : "記録を保存する")}
           </button>
         </form>
       </section>

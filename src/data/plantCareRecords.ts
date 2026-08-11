@@ -59,6 +59,23 @@ export interface CreatePlantCareRecordInput {
   workTypes: string[];
 }
 
+export interface UpdatePlantCareRecordInput extends CreatePlantCareRecordInput {
+  recordId: string;
+}
+
+function toPlantCareRecord(row: PlantCareRecordRow): PlantCareRecord {
+  return {
+    conditionOther: row.condition_other,
+    createdAt: row.created_at,
+    id: row.id,
+    memo: row.memo,
+    plantCondition: row.plant_condition,
+    recordDate: row.record_date,
+    workOther: row.work_other,
+    workTypes: row.work_types,
+  };
+}
+
 function requireSupabase() {
   if (!supabase) {
     throw new Error(
@@ -111,14 +128,82 @@ export async function listPlantCareRecords(input: {
     );
   }
 
-  return (data as PlantCareRecordRow[]).map((row) => ({
-    conditionOther: row.condition_other,
-    createdAt: row.created_at,
-    id: row.id,
-    memo: row.memo,
-    plantCondition: row.plant_condition,
-    recordDate: row.record_date,
-    workOther: row.work_other,
-    workTypes: row.work_types,
-  }));
+  return (data as PlantCareRecordRow[]).map(toPlantCareRecord);
+}
+
+export async function getPlantCareRecord(input: {
+  recordId: string;
+  userId: string;
+  userPlantId: string;
+}): Promise<PlantCareRecord | null> {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("plant_care_records")
+    .select(plantCareRecordColumns)
+    .eq("id", input.recordId)
+    .eq("user_plant_id", input.userPlantId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[plant-care-records] Fetch by ID failed", { code: error.code });
+    throw new Error(
+      "記録を取得できませんでした。通信状態を確認して、もう一度お試しください。",
+    );
+  }
+
+  return data ? toPlantCareRecord(data as PlantCareRecordRow) : null;
+}
+
+export async function updatePlantCareRecord(
+  input: UpdatePlantCareRecordInput,
+): Promise<boolean> {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("plant_care_records")
+    .update({
+      record_date: input.recordDate,
+      plant_condition: input.plantCondition,
+      condition_other: input.conditionOther,
+      work_types: input.workTypes,
+      work_other: input.workOther,
+      memo: input.memo,
+    })
+    .eq("id", input.recordId)
+    .eq("user_plant_id", input.userPlantId)
+    .eq("user_id", input.userId)
+    .select("id");
+
+  if (error) {
+    console.error("[plant-care-records] Update failed", { code: error.code });
+    throw new Error(
+      "記録を更新できませんでした。通信状態を確認し、時間をおいてもう一度お試しください。",
+    );
+  }
+
+  return data.length === 1;
+}
+
+export async function deletePlantCareRecord(input: {
+  recordId: string;
+  userId: string;
+  userPlantId: string;
+}): Promise<boolean> {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("plant_care_records")
+    .delete()
+    .eq("id", input.recordId)
+    .eq("user_plant_id", input.userPlantId)
+    .eq("user_id", input.userId)
+    .select("id");
+
+  if (error) {
+    console.error("[plant-care-records] Delete failed", { code: error.code });
+    throw new Error(
+      "記録を削除できませんでした。通信状態を確認し、時間をおいてもう一度お試しください。",
+    );
+  }
+
+  return data.length === 1;
 }
