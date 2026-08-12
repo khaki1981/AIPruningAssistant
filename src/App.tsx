@@ -821,6 +821,18 @@ function App() {
     window.scrollTo({ top: 0 });
   };
 
+  const consumeCareUpdated = () => {
+    if (!route.careUpdated) return;
+
+    const nextRoute = { ...route, careUpdated: undefined };
+    window.history.replaceState(
+      { pruningAssistantRoute: nextRoute },
+      "",
+      getRouteUrl(nextRoute),
+    );
+    setRoute(nextRoute);
+  };
+
   const navigateToView = (view: AppView) => navigate({ view });
 
   const resetTransientAppState = () => {
@@ -991,6 +1003,7 @@ function App() {
                 })
               }
               onLogin={() => navigate({ view: "auth" })}
+              onUpdatedMessageConsumed={consumeCareUpdated}
               updatedMessage={route.careUpdated}
               userId={user?.id}
               userPlantId={route.userPlantId}

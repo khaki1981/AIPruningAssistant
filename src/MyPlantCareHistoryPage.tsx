@@ -25,6 +25,7 @@ interface MyPlantCareHistoryPageProps {
   onCreateRecord: (userPlantId: string) => void;
   onEditRecord: (userPlantId: string, recordId: string) => void;
   onLogin: () => void;
+  onUpdatedMessageConsumed: () => void;
   userId?: string;
   userPlantId: string;
   updatedMessage?: boolean;
@@ -59,6 +60,7 @@ function MyPlantCareHistoryPage({
   onCreateRecord,
   onEditRecord,
   onLogin,
+  onUpdatedMessageConsumed,
   userId,
   userPlantId,
   updatedMessage,
@@ -74,7 +76,14 @@ function MyPlantCareHistoryPage({
   const [deletingRecordId, setDeletingRecordId] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deleteSuccess, setDeleteSuccess] = useState("");
+  const [showUpdatedMessage, setShowUpdatedMessage] = useState(
+    Boolean(updatedMessage),
+  );
   const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (updatedMessage) onUpdatedMessageConsumed();
+  }, [onUpdatedMessageConsumed, updatedMessage]);
 
   useEffect(() => {
     setUserPlant(null);
@@ -165,6 +174,7 @@ function MyPlantCareHistoryPage({
     if (!window.confirm(`${displayDate}の記録を削除しますか？\nこの操作は取り消せません。`)) {
       return;
     }
+    setShowUpdatedMessage(false);
     if (!userPlantIdPattern.test(record.id)) {
       setDeleteError(
         "対象の記録が見つからないか、このアカウントでは利用できません",
@@ -293,7 +303,7 @@ function MyPlantCareHistoryPage({
           {!isLoadingRecords && !recordLoadError && records.length > 0 && <p>{records.length}件の記録があります。</p>}
         </div>
 
-        {updatedMessage && (
+        {showUpdatedMessage && (
           <div className="plant-care-success plant-care-history__feedback" role="status">
             <strong>記録を更新しました。</strong>
           </div>
