@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import AuthPage from "./AuthPage";
 import type { AuthMode } from "./AuthPage";
+import MyPlantEditPage from "./MyPlantEditPage";
 import MyPlantCareHistoryPage from "./MyPlantCareHistoryPage";
 import MyPlantCareRecordPage from "./MyPlantCareRecordPage";
 import MyPlantsPage from "./MyPlantsPage";
@@ -243,6 +244,9 @@ type AppRoute = {
   careEdit?: boolean;
   careHistory?: boolean;
   careUpdated?: boolean;
+  myPlantCompletion?: "deleted" | "updated";
+  myPlantEdit?: boolean;
+  myPlantEditFromMyPlants?: boolean;
   plantId?: string;
   plantConfirmation?: boolean;
   plantGuidance?: boolean;
@@ -264,6 +268,9 @@ function readRoute(value: unknown): AppRoute {
     careEdit,
     careHistory,
     careUpdated,
+    myPlantCompletion,
+    myPlantEdit,
+    myPlantEditFromMyPlants,
     plantConfirmation,
     plantGuidance,
     plantId,
@@ -276,6 +283,9 @@ function readRoute(value: unknown): AppRoute {
     careEdit?: unknown;
     careHistory?: unknown;
     careUpdated?: unknown;
+    myPlantCompletion?: unknown;
+    myPlantEdit?: unknown;
+    myPlantEditFromMyPlants?: unknown;
     plantConfirmation?: unknown;
     plantGuidance?: unknown;
     plantId?: unknown;
@@ -300,12 +310,14 @@ function readRoute(value: unknown): AppRoute {
     careFromMyPlants:
       view === "my-plants" &&
       typeof userPlantId === "string" &&
+      myPlantEdit !== true &&
       careFromMyPlants === true
         ? true
         : undefined,
     careHistory:
       view === "my-plants" &&
       typeof userPlantId === "string" &&
+      myPlantEdit !== true &&
       careEdit !== true &&
       careHistory === true
         ? true
@@ -313,11 +325,30 @@ function readRoute(value: unknown): AppRoute {
     careEdit:
       view === "my-plants" &&
       typeof userPlantId === "string" &&
+      myPlantEdit !== true &&
       careEdit === true
         ? true
         : undefined,
     careUpdated:
       view === "my-plants" && careHistory === true && careUpdated === true
+        ? true
+        : undefined,
+    myPlantCompletion:
+      view === "my-plants" &&
+      (myPlantCompletion === "updated" || myPlantCompletion === "deleted")
+        ? myPlantCompletion
+        : undefined,
+    myPlantEdit:
+      view === "my-plants" &&
+      typeof userPlantId === "string" &&
+      myPlantEdit === true
+        ? true
+        : undefined,
+    myPlantEditFromMyPlants:
+      view === "my-plants" &&
+      typeof userPlantId === "string" &&
+      myPlantEdit === true &&
+      myPlantEditFromMyPlants === true
         ? true
         : undefined,
     plantId: view === "plants" && typeof plantId === "string" ? plantId : undefined,
@@ -343,7 +374,7 @@ function readRoute(value: unknown): AppRoute {
   };
 }
 
-function readCareRouteFromLocation(): AppRoute | undefined {
+function readMyPlantsRouteFromLocation(): AppRoute | undefined {
   const parameters = new URLSearchParams(window.location.search);
   const userPlantId = parameters.get("userPlantId");
   const careView = parameters.get("view");
@@ -351,7 +382,8 @@ function readCareRouteFromLocation(): AppRoute | undefined {
     !userPlantId ||
     (careView !== "plant-care" &&
       careView !== "plant-care-history" &&
-      careView !== "plant-care-edit")
+      careView !== "plant-care-edit" &&
+      careView !== "my-plant-edit")
   ) {
     return undefined;
   }
@@ -359,6 +391,7 @@ function readCareRouteFromLocation(): AppRoute | undefined {
     view: "my-plants",
     careHistory: careView === "plant-care-history" ? true : undefined,
     careEdit: careView === "plant-care-edit" ? true : undefined,
+    myPlantEdit: careView === "my-plant-edit" ? true : undefined,
     recordId: careView === "plant-care-edit" ? parameters.get("recordId") ?? "" : undefined,
     userPlantId,
   };
@@ -367,7 +400,7 @@ function readCareRouteFromLocation(): AppRoute | undefined {
 function getInitialRoute() {
   const storedRoute = readRoute(window.history.state);
   if (storedRoute.userPlantId) return storedRoute;
-  return readCareRouteFromLocation() ?? homeRoute;
+  return readMyPlantsRouteFromLocation() ?? homeRoute;
 }
 
 function getRouteUrl(route: AppRoute) {
@@ -378,7 +411,9 @@ function getRouteUrl(route: AppRoute) {
   if (route.view === "my-plants" && route.userPlantId) {
     url.searchParams.set(
       "view",
-      route.careEdit
+      route.myPlantEdit
+        ? "my-plant-edit"
+        : route.careEdit
         ? "plant-care-edit"
         : route.careHistory
           ? "plant-care-history"
@@ -779,7 +814,7 @@ function App() {
       const storedRoute = readRoute(event.state);
       const nextRoute = storedRoute.userPlantId
         ? storedRoute
-        : readCareRouteFromLocation() ?? storedRoute;
+        : readMyPlantsRouteFromLocation() ?? storedRoute;
       if (
         (nextRoute.plantConfirmation || nextRoute.plantGuidance) &&
         nextRoute.plantId
@@ -802,6 +837,9 @@ function App() {
       route.careEdit === nextRoute.careEdit &&
       route.careHistory === nextRoute.careHistory &&
       route.careUpdated === nextRoute.careUpdated &&
+      route.myPlantCompletion === nextRoute.myPlantCompletion &&
+      route.myPlantEdit === nextRoute.myPlantEdit &&
+      route.myPlantEditFromMyPlants === nextRoute.myPlantEditFromMyPlants &&
       route.plantId === nextRoute.plantId &&
       route.plantConfirmation === nextRoute.plantConfirmation &&
       route.plantGuidance === nextRoute.plantGuidance &&
@@ -831,6 +869,21 @@ function App() {
       getRouteUrl(nextRoute),
     );
     setRoute(nextRoute);
+  };
+
+  const replaceRoute = (nextRoute: AppRoute) => {
+    window.history.replaceState(
+      { pruningAssistantRoute: nextRoute },
+      "",
+      getRouteUrl(nextRoute),
+    );
+    setRoute(nextRoute);
+    window.scrollTo({ top: 0 });
+  };
+
+  const consumeMyPlantCompletion = () => {
+    if (!route.myPlantCompletion) return;
+    replaceRoute({ ...route, myPlantCompletion: undefined });
   };
 
   const navigateToView = (view: AppView) => navigate({ view });
@@ -958,7 +1011,27 @@ function App() {
         />
       ) : route.view === "my-plants" ? (
         route.userPlantId ? (
-          route.careEdit ? (
+          route.myPlantEdit ? (
+            <MyPlantEditPage
+              isAuthInitializing={isAuthInitializing}
+              onBackToMyPlants={() => {
+                if (route.myPlantEditFromMyPlants) {
+                  window.history.back();
+                  return;
+                }
+                navigate({ view: "my-plants" });
+              }}
+              onDeleted={() =>
+                replaceRoute({ view: "my-plants", myPlantCompletion: "deleted" })
+              }
+              onLogin={() => navigate({ view: "auth" })}
+              onUpdated={() =>
+                replaceRoute({ view: "my-plants", myPlantCompletion: "updated" })
+              }
+              userId={user?.id}
+              userPlantId={route.userPlantId}
+            />
+          ) : route.careEdit ? (
             <MyPlantCareRecordPage
               isAuthInitializing={isAuthInitializing}
               onBackToMyPlants={() =>
@@ -1025,10 +1098,20 @@ function App() {
           )
         ) : (
           <MyPlantsPage
+            completionMessage={route.myPlantCompletion}
             isAuthInitializing={isAuthInitializing}
             onBackHome={() => navigateToView("home")}
+            onCompletionMessageConsumed={consumeMyPlantCompletion}
             onCreateRecord={(userPlantId) =>
               navigate({ view: "my-plants", userPlantId, careFromMyPlants: true })
+            }
+            onEditPlant={(userPlantId) =>
+              navigate({
+                view: "my-plants",
+                userPlantId,
+                myPlantEdit: true,
+                myPlantEditFromMyPlants: true,
+              })
             }
             onViewHistory={(userPlantId) =>
               navigate({
