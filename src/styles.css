@@ -2099,6 +2099,101 @@ textarea:disabled {
   background: var(--color-surface);
 }
 
+.my-plants-feedback {
+  margin-bottom: 18px;
+  overflow-wrap: anywhere;
+}
+
+.my-plant-edit-page {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.my-plant-edit-page__intro {
+  min-height: 300px;
+}
+
+.my-plant-edit-card,
+.my-plant-danger-zone {
+  min-width: 0;
+  margin-top: 18px;
+}
+
+.my-plant-edit-form {
+  display: grid;
+  min-width: 0;
+  gap: 20px;
+}
+
+.my-plant-edit-form .field > small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.my-plant-edit-form .alert-box,
+.my-plant-delete-notice {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.my-plant-edit-submit {
+  width: 100%;
+}
+
+.my-plant-danger-zone {
+  border-color: #d9aaa4;
+  background: #fffafa;
+}
+
+.my-plant-danger-zone h2 {
+  margin: 5px 0 0;
+  color: var(--color-error);
+  font-family: "Shippori Mincho", "Yu Mincho", serif;
+  font-size: 1.35rem;
+}
+
+.my-plant-danger-zone > div > p {
+  margin: 9px 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+.my-plant-delete-notice {
+  margin-top: 18px;
+}
+
+.my-plant-delete-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 18px;
+  padding: 11px 18px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #b64b42;
+  border-radius: var(--radius-control);
+  color: white;
+  background: #a9433b;
+  font-weight: 700;
+}
+
+.my-plant-delete-button:hover:not(:disabled),
+.my-plant-delete-button:focus-visible {
+  border-color: #8f332c;
+  outline: 0;
+  background: #8f332c;
+  box-shadow: 0 0 0 3px rgba(169, 67, 59, 0.2);
+}
+
+.my-plant-delete-button:disabled {
+  cursor: not-allowed;
+  border-color: #b9aaa8;
+  color: #f8f4f3;
+  background: #9a8987;
+}
+
 .plant-care-page {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -2799,6 +2894,16 @@ textarea:disabled {
   .plant-care-submit {
     width: auto;
     min-width: 260px;
+    justify-self: end;
+  }
+
+  .my-plant-edit-submit,
+  .my-plant-delete-button {
+    width: auto;
+    min-width: 260px;
+  }
+
+  .my-plant-edit-submit {
     justify-self: end;
   }
 

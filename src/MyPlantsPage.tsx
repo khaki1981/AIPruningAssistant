@@ -6,9 +6,12 @@ import type { UserPlant } from "./types/userPlant";
 const visiblePlants = loadPlants();
 
 interface MyPlantsPageProps {
+  completionMessage?: "deleted" | "updated";
   isAuthInitializing: boolean;
   onBackHome: () => void;
+  onCompletionMessageConsumed: () => void;
   onCreateRecord: (userPlantId: string) => void;
+  onEditPlant: (userPlantId: string) => void;
   onLogin: () => void;
   onViewHistory: (userPlantId: string) => void;
   onViewDetails: (plantId: string) => void;
@@ -17,9 +20,12 @@ interface MyPlantsPageProps {
 }
 
 function MyPlantsPage({
+  completionMessage,
   isAuthInitializing,
   onBackHome,
+  onCompletionMessageConsumed,
   onCreateRecord,
+  onEditPlant,
   onLogin,
   onViewHistory,
   onViewDetails,
@@ -29,10 +35,15 @@ function MyPlantsPage({
   const [userPlants, setUserPlants] = useState<UserPlant[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showCompletionMessage] = useState(completionMessage);
   const plantsById = useMemo(
     () => new Map(visiblePlants.map((plant) => [plant.id, plant])),
     [],
   );
+
+  useEffect(() => {
+    if (completionMessage) onCompletionMessageConsumed();
+  }, [completionMessage, onCompletionMessageConsumed]);
 
   useEffect(() => {
     if (!userId) {
@@ -119,6 +130,16 @@ function MyPlantsPage({
           {!isLoading && !errorMessage && <p>{userPlants.length}件登録されています。</p>}
         </div>
 
+        {showCompletionMessage && (
+          <div className="plant-care-success my-plants-feedback" role="status">
+            <strong>
+              {showCompletionMessage === "updated"
+                ? "自分の植物を更新しました。"
+                : "自分の植物を削除しました。"}
+            </strong>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="loading-state my-plants-state" role="status">
             <span className="loading-spinner" aria-hidden="true" />
@@ -162,6 +183,9 @@ function MyPlantsPage({
                     </button>
                     <button type="button" onClick={() => onViewHistory(userPlant.id)}>
                       過去の記録を見る
+                    </button>
+                    <button type="button" onClick={() => onEditPlant(userPlant.id)}>
+                      呼び名の編集・植物の削除
                     </button>
                     {plant && (
                       <>

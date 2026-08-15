@@ -99,3 +99,84 @@ export async function createUserPlant(input: {
   return toUserPlant(data as UserPlantRow);
 }
 
+export async function countPlantCareRecords(input: {
+  userPlantId: string;
+  userId: string;
+}): Promise<number> {
+  const client = requireSupabase();
+  const { count, error } = await client
+    .from("plant_care_records")
+    .select("id", { count: "exact", head: true })
+    .eq("user_plant_id", input.userPlantId)
+    .eq("user_id", input.userId);
+
+  if (error) {
+    console.error("[user-plants] Care record count failed", { code: error.code });
+    throw new Error(
+      "手入れ記録の件数を確認できませんでした。時間をおいてもう一度お試しください。",
+    );
+  }
+
+  if (count === null) {
+    throw new Error(
+      "手入れ記録の件数を確認できませんでした。時間をおいてもう一度お試しください。",
+    );
+  }
+
+  return count;
+}
+
+export async function updateUserPlantNickname(input: {
+  nickname: string;
+  userPlantId: string;
+  userId: string;
+}): Promise<boolean> {
+  const client = requireSupabase();
+  const nickname = input.nickname.trim();
+  const { data, error } = await client
+    .from("user_plants")
+    .update({ nickname: nickname || null })
+    .eq("id", input.userPlantId)
+    .eq("user_id", input.userId)
+    .select("id");
+
+  if (error) {
+    console.error("[user-plants] Update failed", { code: error.code });
+    throw new Error(
+      "自分の植物を更新できませんでした。時間をおいてもう一度お試しください。",
+    );
+  }
+
+  return data.length === 1;
+}
+
+export class UserPlantHasCareRecordsError extends Error {
+  constructor() {
+    super("User plant has care records");
+    this.name = "UserPlantHasCareRecordsError";
+  }
+}
+
+export async function deleteUserPlant(input: {
+  userPlantId: string;
+  userId: string;
+}): Promise<boolean> {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("user_plants")
+    .delete()
+    .eq("id", input.userPlantId)
+    .eq("user_id", input.userId)
+    .select("id");
+
+  if (error) {
+    console.error("[user-plants] Delete failed", { code: error.code });
+    if (error.code === "23503") throw new UserPlantHasCareRecordsError();
+    throw new Error(
+      "自分の植物を削除できませんでした。時間をおいてもう一度お試しください。",
+    );
+  }
+
+  return data.length === 1;
+}
+
