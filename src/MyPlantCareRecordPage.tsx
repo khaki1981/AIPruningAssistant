@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import {
   createPlantCareRecord,
   getPlantCareRecord,
@@ -12,6 +12,12 @@ import type {
 } from "./data/plantCareRecords";
 import { loadPlants } from "./data/loadPlants";
 import { getUserPlantById } from "./data/userPlants";
+import {
+  compressPlantPhoto,
+  PlantPhotoProcessingError,
+  releaseCompressedPlantPhoto,
+} from "./lib/plantPhotoCompression";
+import type { CompressedPlantPhoto } from "./lib/plantPhotoCompression";
 import type { UserPlant } from "./types/userPlant";
 
 const allPlants = loadPlants(true);
@@ -39,6 +45,131 @@ function isCalendarDate(value: string) {
     candidate.getFullYear() === year &&
     candidate.getMonth() === month - 1 &&
     candidate.getDate() === day
+  );
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${bytes}B`;
+}
+
+function PlantPhotoSelector({
+  disabled,
+  errorMessage,
+  isCompressing,
+  onChange,
+  onRemove,
+  photo,
+}: {
+  disabled: boolean;
+  errorMessage: string;
+  isCompressing: boolean;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onRemove: () => void;
+  photo: CompressedPlantPhoto | null;
+}) {
+  const reductionRate =
+    photo && photo.originalSize > 0 && photo.compressedSize < photo.originalSize
+      ? Math.round((1 - photo.compressedSize / photo.originalSize) * 100)
+      : null;
+  const outputFormat = photo?.outputMimeType === "image/webp" ? "WebP" : "JPEG";
+
+  return (
+    <section className="plant-care-photo-field" aria-labelledby="plant-care-photo-title">
+      <div className="plant-care-photo-field__heading">
+        <h3 id="plant-care-photo-title">写真（任意）</h3>
+        <p>植物の現在の状態が分かる写真を1枚選択してください。</p>
+        <p>写真は端末内で縮小・圧縮してプレビューします。</p>
+      </div>
+
+      <div className="plant-care-photo-note" role="note">
+        <strong>現在、この写真は手入れ記録と一緒には保存されません。</strong>
+        <span>写真の保存機能は次の段階で追加します。</span>
+      </div>
+
+      <input
+        className="visually-hidden"
+        id="plant-care-photo"
+        type="file"
+        accept="image/*"
+        disabled={disabled}
+        onChange={onChange}
+      />
+      <label
+        className={`plant-care-photo-picker${disabled ? " is-disabled" : ""}`}
+        htmlFor="plant-care-photo"
+        aria-disabled={disabled}
+      >
+        <strong>
+          {isCompressing
+            ? "写真を圧縮しています…"
+            : photo
+              ? "別の写真を選ぶ"
+              : "写真を選択する"}
+        </strong>
+        <span>カメラ撮影または写真フォルダから選択</span>
+        <small>JPEG・PNG・WebP・HEIC・HEIF／最大20MB</small>
+      </label>
+
+      {isCompressing && (
+        <div className="plant-care-photo-processing" role="status">
+          <span className="loading-spinner" aria-hidden="true" />
+          <div>
+            <strong>写真を圧縮しています</strong>
+            <p>画面を閉じずにお待ちください。</p>
+          </div>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="alert-box alert-box--error plant-care-photo-error" role="alert">
+          <div>
+            <strong>写真を処理できませんでした</strong>
+            <p>{errorMessage}</p>
+          </div>
+        </div>
+      )}
+
+      {photo && (
+        <div className="plant-care-photo-result">
+          <strong className="plant-care-photo-result__status" role="status">
+            写真の圧縮が完了しました
+          </strong>
+          <figure className="plant-care-photo-preview">
+            <img
+              src={photo.previewUrl}
+              alt={`選択した植物の状態写真：${photo.originalFileName}`}
+            />
+            <figcaption>{photo.originalFileName}</figcaption>
+          </figure>
+          <dl className="plant-care-photo-details">
+            <div><dt>圧縮前</dt><dd>{formatFileSize(photo.originalSize)}</dd></div>
+            <div><dt>圧縮後</dt><dd>{formatFileSize(photo.compressedSize)}</dd></div>
+            {reductionRate !== null && (
+              <div><dt>削減率</dt><dd>{reductionRate}%</dd></div>
+            )}
+            <div>
+              <dt>元画像サイズ</dt>
+              <dd>{photo.originalWidth} × {photo.originalHeight}px</dd>
+            </div>
+            <div>
+              <dt>圧縮後サイズ</dt>
+              <dd>{photo.compressedWidth} × {photo.compressedHeight}px</dd>
+            </div>
+            <div><dt>出力形式</dt><dd>{outputFormat}</dd></div>
+          </dl>
+          <button
+            className="plant-care-photo-remove"
+            type="button"
+            disabled={disabled}
+            onClick={onRemove}
+          >
+            写真を削除する
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -75,7 +206,12 @@ function MyPlantCareRecordPage({
   const [saveError, setSaveError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<CompressedPlantPhoto | null>(null);
+  const [photoError, setPhotoError] = useState("");
+  const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const selectedPhotoRef = useRef<CompressedPlantPhoto | null>(null);
+  const photoRequestIdRef = useRef(0);
   const today = getLocalDateValue();
   const isEditing = recordId !== undefined;
 
@@ -93,6 +229,14 @@ function MyPlantCareRecordPage({
     setValidationError("");
     setSaveError("");
     setSuccessMessage("");
+    photoRequestIdRef.current += 1;
+    if (selectedPhotoRef.current) {
+      releaseCompressedPlantPhoto(selectedPhotoRef.current);
+      selectedPhotoRef.current = null;
+    }
+    setSelectedPhoto(null);
+    setPhotoError("");
+    setIsCompressingPhoto(false);
 
     if (!userId) return;
     if (
@@ -156,6 +300,16 @@ function MyPlantCareRecordPage({
   }, [isEditing, recordId, userId, userPlantId]);
 
   useEffect(() => {
+    return () => {
+      photoRequestIdRef.current += 1;
+      if (selectedPhotoRef.current) {
+        releaseCompressedPlantPhoto(selectedPhotoRef.current);
+        selectedPhotoRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (userPlant) headingRef.current?.focus();
   }, [userPlant]);
 
@@ -163,6 +317,51 @@ function MyPlantCareRecordPage({
     setValidationError("");
     setSaveError("");
     setSuccessMessage("");
+  };
+
+  const clearSelectedPhoto = () => {
+    photoRequestIdRef.current += 1;
+    if (selectedPhotoRef.current) {
+      releaseCompressedPlantPhoto(selectedPhotoRef.current);
+      selectedPhotoRef.current = null;
+    }
+    setSelectedPhoto(null);
+    setPhotoError("");
+    setIsCompressingPhoto(false);
+  };
+
+  const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || isSaving || isCompressingPhoto) return;
+
+    clearFeedback();
+    setPhotoError("");
+    const requestId = photoRequestIdRef.current + 1;
+    photoRequestIdRef.current = requestId;
+    setIsCompressingPhoto(true);
+
+    try {
+      const nextPhoto = await compressPlantPhoto(file);
+      if (photoRequestIdRef.current !== requestId) {
+        releaseCompressedPlantPhoto(nextPhoto);
+        return;
+      }
+      if (selectedPhotoRef.current) {
+        releaseCompressedPlantPhoto(selectedPhotoRef.current);
+      }
+      selectedPhotoRef.current = nextPhoto;
+      setSelectedPhoto(nextPhoto);
+    } catch (error) {
+      if (photoRequestIdRef.current !== requestId) return;
+      setPhotoError(
+        error instanceof PlantPhotoProcessingError
+          ? error.message
+          : "写真を処理できませんでした。別の写真を選択してください。",
+      );
+    } finally {
+      if (photoRequestIdRef.current === requestId) setIsCompressingPhoto(false);
+    }
   };
 
   const handleConditionChange = (code: PlantConditionCode) => {
@@ -183,7 +382,7 @@ function MyPlantCareRecordPage({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isSaving) return;
+    if (isSaving || isCompressingPhoto) return;
 
     setValidationError("");
     setSaveError("");
@@ -269,11 +468,13 @@ function MyPlantCareRecordPage({
           );
           return;
         }
+        clearSelectedPhoto();
         onUpdated?.(userPlant.id);
         return;
       }
 
       await createPlantCareRecord(input);
+      clearSelectedPhoto();
       setRecordDate(getLocalDateValue());
       setPlantCondition("");
       setConditionOther("");
@@ -407,6 +608,15 @@ function MyPlantCareRecordPage({
             />
           </div>
 
+          <PlantPhotoSelector
+            disabled={isSaving || isCompressingPhoto}
+            errorMessage={photoError}
+            isCompressing={isCompressingPhoto}
+            onChange={(event) => void handlePhotoChange(event)}
+            onRemove={clearSelectedPhoto}
+            photo={selectedPhoto}
+          />
+
           <fieldset className="plant-care-fieldset" disabled={isSaving}>
             <legend>植物の状態</legend>
             <p>現在の状態を1つ選択してください。</p>
@@ -527,8 +737,16 @@ function MyPlantCareRecordPage({
             </div>
           )}
 
-          <button className="primary-button plant-care-submit" type="submit" disabled={isSaving}>
-            {isSaving ? (isEditing ? "更新中…" : "保存中…") : (isEditing ? "変更を保存する" : "記録を保存する")}
+          <button
+            className="primary-button plant-care-submit"
+            type="submit"
+            disabled={isSaving || isCompressingPhoto}
+          >
+            {isCompressingPhoto
+              ? "写真を圧縮中…"
+              : isSaving
+                ? (isEditing ? "更新中…" : "保存中…")
+                : (isEditing ? "変更を保存する" : "記録を保存する")}
           </button>
         </form>
       </section>
