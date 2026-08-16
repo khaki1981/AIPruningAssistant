@@ -6,8 +6,15 @@ import {
   plantConditionOptions,
 } from "./data/plantCareRecords";
 import type { PlantCareRecord } from "./data/plantCareRecords";
+import {
+  createPlantCareRecordPhotoSignedUrl,
+  createPlantCareRecordPhotoSignedUrls,
+  listPlantCareRecordPhotos,
+} from "./data/plantCareRecordPhotos";
 import { loadPlants } from "./data/loadPlants";
 import { getUserPlantById } from "./data/userPlants";
+import PlantCareRecordPhotoViewer from "./PlantCareRecordPhotoViewer";
+import type { PlantCareRecordPhoto } from "./types/plantCareRecordPhoto";
 import type { UserPlant } from "./types/userPlant";
 
 const allPlants = loadPlants(true);
@@ -54,6 +61,13 @@ function getWorkLabels(codes: string[]) {
   );
 }
 
+type SavedPhotoDisplayState = {
+  automaticRetryUsed: boolean;
+  photo: PlantCareRecordPhoto;
+  signedUrl: string | null;
+  status: "error" | "loading" | "ready";
+};
+
 function MyPlantCareHistoryPage({
   isAuthInitializing,
   onBackToMyPlants,
@@ -73,6 +87,11 @@ function MyPlantCareHistoryPage({
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
   const [recordLoadError, setRecordLoadError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [photoRetryKey, setPhotoRetryKey] = useState(0);
+  const [photoListError, setPhotoListError] = useState(false);
+  const [savedPhotos, setSavedPhotos] = useState<
+    Record<string, SavedPhotoDisplayState>
+  >({});
   const [deletingRecordId, setDeletingRecordId] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deleteSuccess, setDeleteSuccess] = useState("");
@@ -80,6 +99,9 @@ function MyPlantCareHistoryPage({
     Boolean(updatedMessage),
   );
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const photoLoadGenerationRef = useRef(0);
+  const photoRequestIdsRef = useRef(new Map<string, number>());
+  const failedPhotoUrlsRef = useRef(new Map<string, string>());
 
   useEffect(() => {
     if (updatedMessage) onUpdatedMessageConsumed();
@@ -91,6 +113,8 @@ function MyPlantCareHistoryPage({
     setIsPlantUnavailable(false);
     setPlantLoadError(false);
     setRecordLoadError(false);
+    setPhotoListError(false);
+    setSavedPhotos({});
     setIsLoadingPlant(false);
     setIsLoadingRecords(false);
     setDeletingRecordId("");
@@ -151,6 +175,95 @@ function MyPlantCareHistoryPage({
   }, [retryKey, userId, userPlant]);
 
   useEffect(() => {
+    if (!userId || !userPlant) return;
+
+    let isCurrent = true;
+    const generation = photoLoadGenerationRef.current + 1;
+    photoLoadGenerationRef.current = generation;
+    photoRequestIdsRef.current.clear();
+    failedPhotoUrlsRef.current.clear();
+    setPhotoListError(false);
+    setSavedPhotos({});
+
+    void (async () => {
+      let photos: PlantCareRecordPhoto[];
+      try {
+        photos = await listPlantCareRecordPhotos({
+          userPlantId: userPlant.id,
+          userId,
+        });
+      } catch {
+        if (isCurrent && photoLoadGenerationRef.current === generation) {
+          setPhotoListError(true);
+        }
+        return;
+      }
+      if (!isCurrent || photoLoadGenerationRef.current !== generation) return;
+
+      setSavedPhotos(
+        Object.fromEntries(
+          photos.map((photo) => [
+            photo.plantCareRecordId,
+            {
+              automaticRetryUsed: false,
+              photo,
+              signedUrl: null,
+              status: "loading" as const,
+            },
+          ]),
+        ),
+      );
+      if (photos.length === 0) return;
+
+      try {
+        const results = await createPlantCareRecordPhotoSignedUrls({
+          photos,
+          userPlantId: userPlant.id,
+          userId,
+        });
+        if (!isCurrent || photoLoadGenerationRef.current !== generation) return;
+        setSavedPhotos(
+          Object.fromEntries(
+            results.map(({ photo, signedUrl }) => [
+              photo.plantCareRecordId,
+              {
+                automaticRetryUsed: false,
+                photo,
+                signedUrl,
+                status: signedUrl ? "ready" as const : "error" as const,
+              },
+            ]),
+          ),
+        );
+      } catch {
+        if (!isCurrent || photoLoadGenerationRef.current !== generation) return;
+        setSavedPhotos(
+          Object.fromEntries(
+            photos.map((photo) => [
+              photo.plantCareRecordId,
+              {
+                automaticRetryUsed: false,
+                photo,
+                signedUrl: null,
+                status: "error" as const,
+              },
+            ]),
+          ),
+        );
+      }
+    })();
+
+    return () => {
+      isCurrent = false;
+      if (photoLoadGenerationRef.current === generation) {
+        photoLoadGenerationRef.current += 1;
+        photoRequestIdsRef.current.clear();
+        failedPhotoUrlsRef.current.clear();
+      }
+    };
+  }, [photoRetryKey, userId, userPlant]);
+
+  useEffect(() => {
     if (userPlant && !isLoadingRecords) headingRef.current?.focus();
   }, [isLoadingRecords, userPlant]);
 
@@ -163,6 +276,77 @@ function MyPlantCareHistoryPage({
     setRecordLoadError(false);
     setIsLoadingRecords(true);
     setRetryKey((current) => current + 1);
+  };
+
+  const refreshSavedPhoto = async (
+    photo: PlantCareRecordPhoto,
+    automaticRetryUsed: boolean,
+  ) => {
+    if (!userId || !userPlant) return;
+    const recordId = photo.plantCareRecordId;
+    if (!automaticRetryUsed) failedPhotoUrlsRef.current.delete(recordId);
+    const requestId = (photoRequestIdsRef.current.get(recordId) ?? 0) + 1;
+    const generation = photoLoadGenerationRef.current;
+    photoRequestIdsRef.current.set(recordId, requestId);
+    setSavedPhotos((current) => ({
+      ...current,
+      [recordId]: {
+        automaticRetryUsed,
+        photo,
+        signedUrl: null,
+        status: "loading",
+      },
+    }));
+
+    try {
+      const signedUrl = await createPlantCareRecordPhotoSignedUrl({
+        photo,
+        userPlantId: userPlant.id,
+        userId,
+      });
+      if (
+        photoLoadGenerationRef.current !== generation ||
+        photoRequestIdsRef.current.get(recordId) !== requestId
+      ) return;
+      setSavedPhotos((current) => ({
+        ...current,
+        [recordId]: {
+          automaticRetryUsed,
+          photo,
+          signedUrl,
+          status: "ready",
+        },
+      }));
+    } catch {
+      if (
+        photoLoadGenerationRef.current !== generation ||
+        photoRequestIdsRef.current.get(recordId) !== requestId
+      ) return;
+      setSavedPhotos((current) => ({
+        ...current,
+        [recordId]: {
+          automaticRetryUsed,
+          photo,
+          signedUrl: null,
+          status: "error",
+        },
+      }));
+    }
+  };
+
+  const handleSavedPhotoError = (recordId: string, failedUrl: string) => {
+    const current = savedPhotos[recordId];
+    if (!current || current.signedUrl !== failedUrl) return;
+    if (failedPhotoUrlsRef.current.get(recordId) === failedUrl) return;
+    failedPhotoUrlsRef.current.set(recordId, failedUrl);
+    if (current.automaticRetryUsed) {
+      setSavedPhotos((photos) => ({
+        ...photos,
+        [recordId]: { ...current, signedUrl: null, status: "error" },
+      }));
+      return;
+    }
+    void refreshSavedPhoto(current.photo, true);
   };
 
   const handleDelete = async (record: PlantCareRecord) => {
@@ -196,6 +380,16 @@ function MyPlantCareHistoryPage({
         return;
       }
       setRecords((current) => current.filter((item) => item.id !== record.id));
+      photoRequestIdsRef.current.set(
+        record.id,
+        (photoRequestIdsRef.current.get(record.id) ?? 0) + 1,
+      );
+      failedPhotoUrlsRef.current.delete(record.id);
+      setSavedPhotos((current) => {
+        const next = { ...current };
+        delete next[record.id];
+        return next;
+      });
       setDeleteSuccess(`${displayDate}の記録を削除しました。`);
     } catch (error) {
       setDeleteError(
@@ -321,6 +515,21 @@ function MyPlantCareHistoryPage({
             </div>
           </div>
         )}
+        {photoListError && (
+          <div className="alert-box alert-box--warning plant-care-history__feedback" role="alert">
+            <div>
+              <strong>保存済み写真を読み込めませんでした</strong>
+              <p>記録内容はそのまま確認できます。写真だけもう一度読み込めます。</p>
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => setPhotoRetryKey((current) => current + 1)}
+              >
+                写真だけ再読み込みする
+              </button>
+            </div>
+          </div>
+        )}
 
         {isLoadingRecords ? (
           <div className="loading-state plant-care-state" role="status">
@@ -347,9 +556,22 @@ function MyPlantCareHistoryPage({
           <div className="plant-care-history__list">
             {records.map((record) => {
               const memo = record.memo?.trim();
+              const savedPhoto = savedPhotos[record.id];
               return (
                 <article className="plant-care-history-card" key={record.id}>
                   <h3>{formatRecordDate(record.recordDate)}</h3>
+                  {savedPhoto && (
+                    <PlantCareRecordPhotoViewer
+                      alt={`${displayName}の${formatRecordDate(record.recordDate)}の記録写真`}
+                      signedUrl={savedPhoto.signedUrl}
+                      status={savedPhoto.status}
+                      variant="thumbnail"
+                      onImageError={(failedUrl) =>
+                        handleSavedPhotoError(record.id, failedUrl)
+                      }
+                      onRetry={() => void refreshSavedPhoto(savedPhoto.photo, false)}
+                    />
+                  )}
                   <dl>
                     <div>
                       <dt>植物の状態</dt>
