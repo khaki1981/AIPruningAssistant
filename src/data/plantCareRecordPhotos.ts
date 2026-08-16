@@ -3,6 +3,7 @@ import type { CompressedPlantPhoto } from "../lib/plantPhotoCompression";
 import type { PlantCareRecordPhoto } from "../types/plantCareRecordPhoto";
 
 export const plantCarePhotoBucket = "plant-care-photos";
+export const plantCarePhotoSignedUrlExpiresIn = 15 * 60;
 
 const maxStoredPhotoSize = 5 * 1024 * 1024;
 const maxStoredPhotoDimension = 1600;
@@ -39,6 +40,11 @@ type StorageCheckResult = "exists" | "not_found" | "unknown";
 export type SavePlantCareRecordPhotoResult = {
   cleanupFailed: boolean;
   status: "saved" | "failed" | "unknown" | "conflict";
+};
+
+export type PlantCareRecordPhotoSignedUrlResult = {
+  photo: PlantCareRecordPhoto;
+  signedUrl: string | null;
 };
 
 const photoColumns =
@@ -140,6 +146,22 @@ function isExpectedStoragePath(input: {
     parts[1] === input.userPlantId &&
     parts[2] === input.recordId &&
     photoFileNamePattern.test(parts[3])
+  );
+}
+
+function isPhotoInExpectedScope(
+  photo: PlantCareRecordPhoto,
+  input: { userId: string; userPlantId: string },
+) {
+  return (
+    photo.userId === input.userId &&
+    photo.userPlantId === input.userPlantId &&
+    isExpectedStoragePath({
+      path: photo.storagePath,
+      recordId: photo.plantCareRecordId,
+      userId: input.userId,
+      userPlantId: input.userPlantId,
+    })
   );
 }
 
@@ -281,6 +303,111 @@ export async function getPlantCareRecordPhoto(input: {
     );
   }
   return result.status === "found" ? result.photo : null;
+}
+
+export async function listPlantCareRecordPhotos(input: {
+  userId: string;
+  userPlantId: string;
+}): Promise<PlantCareRecordPhoto[]> {
+  if (!validateUuid(input.userId) || !validateUuid(input.userPlantId)) {
+    return [];
+  }
+
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("plant_care_record_photos")
+    .select(photoColumns)
+    .eq("user_plant_id", input.userPlantId)
+    .eq("user_id", input.userId);
+
+  if (error) {
+    console.error("[plant-care-record-photos] Metadata list failed", {
+      code: error.code,
+    });
+    throw new Error(
+      "保存済み写真を確認できませんでした。通信状態を確認し、もう一度お試しください。",
+    );
+  }
+
+  const photos = (data as PlantCareRecordPhotoRow[]).map(toPlantCareRecordPhoto);
+  if (photos.some((photo) => !isPhotoInExpectedScope(photo, input))) {
+    console.error("[plant-care-record-photos] Refused unexpected photo metadata");
+    throw new Error(
+      "保存済み写真を安全に表示できませんでした。時間をおいてもう一度お試しください。",
+    );
+  }
+  return photos;
+}
+
+export async function createPlantCareRecordPhotoSignedUrl(input: {
+  photo: PlantCareRecordPhoto;
+  userId: string;
+  userPlantId: string;
+}): Promise<string> {
+  if (!isPhotoInExpectedScope(input.photo, input)) {
+    throw new Error(
+      "保存済み写真を安全に表示できませんでした。時間をおいてもう一度お試しください。",
+    );
+  }
+
+  const client = requireSupabase();
+  const { data, error } = await client.storage
+    .from(plantCarePhotoBucket)
+    .createSignedUrl(
+      input.photo.storagePath,
+      plantCarePhotoSignedUrlExpiresIn,
+    );
+
+  if (error || !data?.signedUrl) {
+    console.error("[plant-care-record-photos] Signed URL creation failed", {
+      code: getStorageErrorCode(error),
+    });
+    throw new Error(
+      "保存済み写真を表示できませんでした。通信状態を確認し、もう一度お試しください。",
+    );
+  }
+  return data.signedUrl;
+}
+
+export async function createPlantCareRecordPhotoSignedUrls(input: {
+  photos: PlantCareRecordPhoto[];
+  userId: string;
+  userPlantId: string;
+}): Promise<PlantCareRecordPhotoSignedUrlResult[]> {
+  if (input.photos.length === 0) return [];
+  if (input.photos.some((photo) => !isPhotoInExpectedScope(photo, input))) {
+    throw new Error(
+      "保存済み写真を安全に表示できませんでした。時間をおいてもう一度お試しください。",
+    );
+  }
+
+  const client = requireSupabase();
+  const { data, error } = await client.storage
+    .from(plantCarePhotoBucket)
+    .createSignedUrls(
+      input.photos.map((photo) => photo.storagePath),
+      plantCarePhotoSignedUrlExpiresIn,
+    );
+
+  if (error || !data) {
+    console.error("[plant-care-record-photos] Signed URL batch failed", {
+      code: getStorageErrorCode(error),
+    });
+    throw new Error(
+      "保存済み写真を表示できませんでした。通信状態を確認し、もう一度お試しください。",
+    );
+  }
+
+  const signedUrlsByPath = new Map(
+    data.map((item) => [
+      item.path,
+      item.error === null && item.signedUrl ? item.signedUrl : null,
+    ]),
+  );
+  return input.photos.map((photo) => ({
+    photo,
+    signedUrl: signedUrlsByPath.get(photo.storagePath) ?? null,
+  }));
 }
 
 function photoMetadataMatches(

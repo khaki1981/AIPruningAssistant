@@ -12,6 +12,8 @@ import type {
 } from "./data/plantCareRecords";
 import { loadPlants } from "./data/loadPlants";
 import {
+  createPlantCareRecordPhotoSignedUrl,
+  getPlantCareRecordPhoto,
   savePlantCareRecordPhoto,
   validateCompressedPlantCarePhoto,
 } from "./data/plantCareRecordPhotos";
@@ -22,6 +24,8 @@ import {
   releaseCompressedPlantPhoto,
 } from "./lib/plantPhotoCompression";
 import type { CompressedPlantPhoto } from "./lib/plantPhotoCompression";
+import PlantCareRecordPhotoViewer from "./PlantCareRecordPhotoViewer";
+import type { PlantCareRecordPhoto } from "./types/plantCareRecordPhoto";
 import type { UserPlant } from "./types/userPlant";
 
 const allPlants = loadPlants(true);
@@ -216,11 +220,21 @@ function MyPlantCareRecordPage({
   const [selectedPhoto, setSelectedPhoto] = useState<CompressedPlantPhoto | null>(null);
   const [photoError, setPhotoError] = useState("");
   const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
+  const [savedPhoto, setSavedPhoto] = useState<PlantCareRecordPhoto | null>(null);
+  const [savedPhotoUrl, setSavedPhotoUrl] = useState<string | null>(null);
+  const [savedPhotoStatus, setSavedPhotoStatus] = useState<
+    "error" | "idle" | "loading" | "none" | "ready"
+  >("idle");
+  const [savedPhotoAutomaticRetryUsed, setSavedPhotoAutomaticRetryUsed] =
+    useState(false);
+  const [savedPhotoRetryKey, setSavedPhotoRetryKey] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const selectedPhotoRef = useRef<CompressedPlantPhoto | null>(null);
   const photoRequestIdRef = useRef(0);
   const saveRequestIdRef = useRef(0);
   const recordAttemptIdRef = useRef<string | null>(null);
+  const savedPhotoRequestIdRef = useRef(0);
+  const savedPhotoFailedUrlRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
   const today = getLocalDateValue();
   const isEditing = recordId !== undefined;
@@ -253,6 +267,12 @@ function MyPlantCareRecordPage({
     setSelectedPhoto(null);
     setPhotoError("");
     setIsCompressingPhoto(false);
+    setSavedPhoto(null);
+    setSavedPhotoUrl(null);
+    setSavedPhotoStatus("idle");
+    setSavedPhotoAutomaticRetryUsed(false);
+    savedPhotoFailedUrlRef.current = null;
+    savedPhotoRequestIdRef.current += 1;
 
     if (!userId) return;
     if (
@@ -316,11 +336,57 @@ function MyPlantCareRecordPage({
   }, [isEditing, recordId, userId, userPlantId]);
 
   useEffect(() => {
+    if (!isEditing || !recordId || !userId || !userPlant) return;
+
+    let isCurrent = true;
+    const requestId = savedPhotoRequestIdRef.current + 1;
+    savedPhotoRequestIdRef.current = requestId;
+    setSavedPhoto(null);
+    setSavedPhotoUrl(null);
+    setSavedPhotoStatus("loading");
+    setSavedPhotoAutomaticRetryUsed(false);
+    savedPhotoFailedUrlRef.current = null;
+
+    void (async () => {
+      try {
+        const photo = await getPlantCareRecordPhoto({
+          recordId,
+          userPlantId: userPlant.id,
+          userId,
+        });
+        if (!isCurrent || savedPhotoRequestIdRef.current !== requestId) return;
+        if (!photo) {
+          setSavedPhotoStatus("none");
+          return;
+        }
+
+        setSavedPhoto(photo);
+        const signedUrl = await createPlantCareRecordPhotoSignedUrl({
+          photo,
+          userPlantId: userPlant.id,
+          userId,
+        });
+        if (!isCurrent || savedPhotoRequestIdRef.current !== requestId) return;
+        setSavedPhotoUrl(signedUrl);
+        setSavedPhotoStatus("ready");
+      } catch {
+        if (!isCurrent || savedPhotoRequestIdRef.current !== requestId) return;
+        setSavedPhotoStatus("error");
+      }
+    })();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [isEditing, recordId, savedPhotoRetryKey, userId, userPlant]);
+
+  useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       saveRequestIdRef.current += 1;
       photoRequestIdRef.current += 1;
+      savedPhotoRequestIdRef.current += 1;
       if (selectedPhotoRef.current) {
         releaseCompressedPlantPhoto(selectedPhotoRef.current);
         selectedPhotoRef.current = null;
@@ -363,6 +429,58 @@ function MyPlantCareRecordPage({
     setSelectedPhoto(null);
     setPhotoError("");
     setIsCompressingPhoto(false);
+  };
+
+  const refreshSavedPhotoUrl = async (
+    photo: PlantCareRecordPhoto,
+    automaticRetryUsed: boolean,
+  ) => {
+    if (!userId || !userPlant) return;
+    const requestId = savedPhotoRequestIdRef.current + 1;
+    savedPhotoRequestIdRef.current = requestId;
+    setSavedPhoto(photo);
+    setSavedPhotoUrl(null);
+    setSavedPhotoStatus("loading");
+    setSavedPhotoAutomaticRetryUsed(automaticRetryUsed);
+    if (!automaticRetryUsed) savedPhotoFailedUrlRef.current = null;
+
+    try {
+      const signedUrl = await createPlantCareRecordPhotoSignedUrl({
+        photo,
+        userPlantId: userPlant.id,
+        userId,
+      });
+      if (!isMountedRef.current || savedPhotoRequestIdRef.current !== requestId) {
+        return;
+      }
+      setSavedPhotoUrl(signedUrl);
+      setSavedPhotoStatus("ready");
+    } catch {
+      if (!isMountedRef.current || savedPhotoRequestIdRef.current !== requestId) {
+        return;
+      }
+      setSavedPhotoStatus("error");
+    }
+  };
+
+  const handleSavedPhotoError = (failedUrl: string) => {
+    if (!savedPhoto || savedPhotoUrl !== failedUrl) return;
+    if (savedPhotoFailedUrlRef.current === failedUrl) return;
+    savedPhotoFailedUrlRef.current = failedUrl;
+    if (savedPhotoAutomaticRetryUsed) {
+      setSavedPhotoUrl(null);
+      setSavedPhotoStatus("error");
+      return;
+    }
+    void refreshSavedPhotoUrl(savedPhoto, true);
+  };
+
+  const retrySavedPhoto = () => {
+    if (savedPhoto) {
+      void refreshSavedPhotoUrl(savedPhoto, false);
+      return;
+    }
+    setSavedPhotoRetryKey((current) => current + 1);
   };
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -811,10 +929,44 @@ function MyPlantCareRecordPage({
           {isEditing ? (
             <section className="plant-care-photo-field" aria-labelledby="plant-care-photo-title">
               <div className="plant-care-photo-field__heading">
-                <h3 id="plant-care-photo-title">写真</h3>
+                <h3 id="plant-care-photo-title">保存済み写真</h3>
               </div>
+              {(savedPhotoStatus === "idle" ||
+                (savedPhotoStatus === "loading" && !savedPhoto)) && (
+                <div className="saved-plant-photo__loading" role="status">
+                  <span className="loading-spinner" aria-hidden="true" />
+                  <span>保存済み写真を確認しています…</span>
+                </div>
+              )}
+              {savedPhotoStatus === "none" && (
+                <div className="plant-care-photo-note" role="note">
+                  <strong>保存されている写真はありません。</strong>
+                  <span>既存記録への写真追加は、次の段階で対応します。</span>
+                </div>
+              )}
+              {savedPhoto &&
+                (savedPhotoStatus === "loading" ||
+                  savedPhotoStatus === "ready" ||
+                  savedPhotoStatus === "error") && (
+                  <PlantCareRecordPhotoViewer
+                    alt={`${displayName}の保存済み記録写真`}
+                    signedUrl={savedPhotoUrl}
+                    status={savedPhotoStatus}
+                    variant="detail"
+                    onImageError={handleSavedPhotoError}
+                    onRetry={retrySavedPhoto}
+                  />
+                )}
+              {savedPhotoStatus === "error" && !savedPhoto && (
+                <div className="saved-plant-photo__error" role="alert">
+                  <span>保存済み写真を確認できませんでした。</span>
+                  <button type="button" onClick={retrySavedPhoto}>
+                    写真だけ再読み込みする
+                  </button>
+                </div>
+              )}
               <div className="plant-care-photo-note" role="note">
-                <strong>保存済み記録への写真追加・変更は、次の段階で対応します。</strong>
+                <span>写真の追加・変更・写真だけの削除は、次の段階で対応します。</span>
               </div>
             </section>
           ) : (
