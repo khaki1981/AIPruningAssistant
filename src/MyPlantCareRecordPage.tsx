@@ -11,6 +11,10 @@ import type {
   PlantConditionCode,
 } from "./data/plantCareRecords";
 import { loadPlants } from "./data/loadPlants";
+import {
+  savePlantCareRecordPhoto,
+  validateCompressedPlantCarePhoto,
+} from "./data/plantCareRecordPhotos";
 import { getUserPlantById } from "./data/userPlants";
 import {
   compressPlantPhoto,
@@ -84,8 +88,8 @@ function PlantPhotoSelector({
       </div>
 
       <div className="plant-care-photo-note" role="note">
-        <strong>現在、この写真は手入れ記録と一緒には保存されません。</strong>
-        <span>写真の保存機能は次の段階で追加します。</span>
+        <strong>圧縮済みの写真だけを手入れ記録と一緒に保存します。</strong>
+        <span>元画像はアップロードされません。写真なしでも記録できます。</span>
       </div>
 
       <input
@@ -206,12 +210,18 @@ function MyPlantCareRecordPage({
   const [saveError, setSaveError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [pendingPhotoRecordId, setPendingPhotoRecordId] = useState<string | null>(null);
+  const [photoSaveWarning, setPhotoSaveWarning] = useState("");
   const [selectedPhoto, setSelectedPhoto] = useState<CompressedPlantPhoto | null>(null);
   const [photoError, setPhotoError] = useState("");
   const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const selectedPhotoRef = useRef<CompressedPlantPhoto | null>(null);
   const photoRequestIdRef = useRef(0);
+  const saveRequestIdRef = useRef(0);
+  const recordAttemptIdRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
   const today = getLocalDateValue();
   const isEditing = recordId !== undefined;
 
@@ -229,6 +239,12 @@ function MyPlantCareRecordPage({
     setValidationError("");
     setSaveError("");
     setSuccessMessage("");
+    setPendingPhotoRecordId(null);
+    setPhotoSaveWarning("");
+    setIsSaving(false);
+    setIsSavingPhoto(false);
+    recordAttemptIdRef.current = null;
+    saveRequestIdRef.current += 1;
     photoRequestIdRef.current += 1;
     if (selectedPhotoRef.current) {
       releaseCompressedPlantPhoto(selectedPhotoRef.current);
@@ -300,7 +316,10 @@ function MyPlantCareRecordPage({
   }, [isEditing, recordId, userId, userPlantId]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
+      saveRequestIdRef.current += 1;
       photoRequestIdRef.current += 1;
       if (selectedPhotoRef.current) {
         releaseCompressedPlantPhoto(selectedPhotoRef.current);
@@ -319,6 +338,22 @@ function MyPlantCareRecordPage({
     setSuccessMessage("");
   };
 
+  const canUpdateSaveState = (requestId: number) =>
+    isMountedRef.current && saveRequestIdRef.current === requestId;
+
+  const resetNewRecordForm = () => {
+    clearSelectedPhoto();
+    setPendingPhotoRecordId(null);
+    setPhotoSaveWarning("");
+    recordAttemptIdRef.current = null;
+    setRecordDate(getLocalDateValue());
+    setPlantCondition("");
+    setConditionOther("");
+    setWorkTypes([]);
+    setWorkOther("");
+    setMemo("");
+  };
+
   const clearSelectedPhoto = () => {
     photoRequestIdRef.current += 1;
     if (selectedPhotoRef.current) {
@@ -333,7 +368,13 @@ function MyPlantCareRecordPage({
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || isSaving || isCompressingPhoto) return;
+    if (
+      !file ||
+      isSaving ||
+      isSavingPhoto ||
+      isCompressingPhoto ||
+      pendingPhotoRecordId
+    ) return;
 
     clearFeedback();
     setPhotoError("");
@@ -382,7 +423,12 @@ function MyPlantCareRecordPage({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isSaving || isCompressingPhoto) return;
+    if (
+      isSaving ||
+      isSavingPhoto ||
+      isCompressingPhoto ||
+      pendingPhotoRecordId
+    ) return;
 
     setValidationError("");
     setSaveError("");
@@ -448,8 +494,41 @@ function MyPlantCareRecordPage({
       return;
     }
 
+    if (selectedPhoto) {
+      try {
+        validateCompressedPlantCarePhoto(selectedPhoto);
+      } catch (error) {
+        setPhotoError(
+          error instanceof Error
+            ? error.message
+            : "圧縮済み写真を保存できません。別の写真を選択してください。",
+        );
+        return;
+      }
+    }
+
+    const requestId = saveRequestIdRef.current + 1;
+    saveRequestIdRef.current = requestId;
+    const recordAttemptId = isEditing
+      ? null
+      : recordAttemptIdRef.current ?? crypto.randomUUID();
+    if (!isEditing && !recordAttemptIdRef.current) {
+      recordAttemptIdRef.current = recordAttemptId;
+    }
+    let createdRecordId: string | null = null;
     setIsSaving(true);
     try {
+      const ownedPlant = await getUserPlantById({ userPlantId, userId });
+      if (!canUpdateSaveState(requestId)) return;
+      if (!ownedPlant || ownedPlant.id !== userPlant.id) {
+        setSaveError(
+          isEditing
+            ? "対象の記録が見つからないか、このアカウントでは利用できません"
+            : "対象の植物が見つからないか、このアカウントでは利用できません。",
+        );
+        return;
+      }
+
       const input = {
         userPlantId: userPlant.id,
         userId,
@@ -462,34 +541,153 @@ function MyPlantCareRecordPage({
       };
       if (isEditing && recordId) {
         const wasUpdated = await updatePlantCareRecord({ ...input, recordId });
+        if (!canUpdateSaveState(requestId)) return;
         if (!wasUpdated) {
           setSaveError(
             "対象の記録が見つからないか、このアカウントでは利用できません",
           );
           return;
         }
-        clearSelectedPhoto();
         onUpdated?.(userPlant.id);
         return;
       }
 
-      await createPlantCareRecord(input);
-      clearSelectedPhoto();
-      setRecordDate(getLocalDateValue());
-      setPlantCondition("");
-      setConditionOther("");
-      setWorkTypes([]);
-      setWorkOther("");
-      setMemo("");
-      setSuccessMessage("状態・作業記録を保存しました。");
+      const createResult = await createPlantCareRecord({
+        ...input,
+        recordId: recordAttemptId!,
+      });
+      if (!canUpdateSaveState(requestId)) return;
+      if (createResult.status !== "saved") {
+        setSaveError(
+          createResult.status === "unknown"
+            ? "手入れ記録の保存結果を確認できませんでした。同じ記録として再確認してください。"
+            : createResult.status === "conflict"
+              ? "同じ保存操作の記録内容を安全に確認できませんでした。過去の記録を確認してください。"
+              : "手入れ記録を保存できませんでした。同じ記録としてもう一度お試しください。",
+        );
+        return;
+      }
+      createdRecordId = createResult.recordId;
+
+      if (!selectedPhoto) {
+        resetNewRecordForm();
+        setSuccessMessage("状態・作業記録を保存しました。");
+        return;
+      }
+
+      const photoResult = await savePlantCareRecordPhoto({
+        photo: selectedPhoto,
+        recordId: createdRecordId,
+        userId,
+        userPlantId: userPlant.id,
+      });
+      if (!canUpdateSaveState(requestId)) return;
+
+      if (photoResult.cleanupFailed) {
+        console.error(
+          "[plant-care-records] Photo cleanup requires another attempt",
+        );
+      }
+      if (photoResult.status !== "saved") {
+        setPendingPhotoRecordId(createdRecordId);
+        setPhotoSaveWarning(
+          photoResult.status === "unknown"
+            ? "写真の保存結果を確認できませんでした。写真だけ再試行してください。"
+            : photoResult.status === "conflict"
+              ? "保存済みの写真情報を安全に確認できませんでした。写真だけ再試行してください。"
+              : "手入れ記録は保存されましたが、写真を保存できませんでした。写真だけ再試行できます。",
+        );
+        return;
+      }
+
+      resetNewRecordForm();
+      setSuccessMessage("状態・作業記録と写真を保存しました。");
     } catch (error) {
+      if (!canUpdateSaveState(requestId)) return;
+      if (createdRecordId && selectedPhoto) {
+        setPendingPhotoRecordId(createdRecordId);
+        setPhotoSaveWarning(
+          "写真の保存結果を確認できませんでした。写真だけ再試行してください。",
+        );
+        return;
+      }
       setSaveError(
         error instanceof Error
           ? error.message
           : "記録を保存できませんでした。時間をおいてもう一度お試しください。",
       );
     } finally {
-      setIsSaving(false);
+      if (canUpdateSaveState(requestId)) setIsSaving(false);
+    }
+  };
+
+  const handlePhotoRetry = async () => {
+    if (
+      isSaving ||
+      isSavingPhoto ||
+      isCompressingPhoto ||
+      !pendingPhotoRecordId ||
+      !selectedPhoto ||
+      !userId ||
+      !userPlant
+    ) return;
+
+    const requestId = saveRequestIdRef.current + 1;
+    saveRequestIdRef.current = requestId;
+    setSaveError("");
+    setSuccessMessage("");
+    setIsSavingPhoto(true);
+
+    try {
+      const [ownedPlant, savedRecord] = await Promise.all([
+        getUserPlantById({ userPlantId: userPlant.id, userId }),
+        getPlantCareRecord({
+          recordId: pendingPhotoRecordId,
+          userPlantId: userPlant.id,
+          userId,
+        }),
+      ]);
+      if (!canUpdateSaveState(requestId)) return;
+      if (!ownedPlant || !savedRecord) {
+        setPhotoSaveWarning(
+          "保存済みの手入れ記録を確認できないため、写真を再試行できませんでした。",
+        );
+        return;
+      }
+
+      const photoResult = await savePlantCareRecordPhoto({
+        photo: selectedPhoto,
+        recordId: pendingPhotoRecordId,
+        userId,
+        userPlantId: userPlant.id,
+      });
+      if (!canUpdateSaveState(requestId)) return;
+
+      if (photoResult.cleanupFailed) {
+        console.error(
+          "[plant-care-records] Photo retry cleanup requires another attempt",
+        );
+      }
+      if (photoResult.status !== "saved") {
+        setPhotoSaveWarning(
+          photoResult.status === "unknown"
+            ? "写真の保存結果を確認できませんでした。写真だけ再試行してください。"
+            : photoResult.status === "conflict"
+              ? "保存済みの写真情報を安全に確認できませんでした。写真だけ再試行してください。"
+              : "手入れ記録は保存されていますが、写真を保存できませんでした。写真だけ再試行できます。",
+        );
+        return;
+      }
+
+      resetNewRecordForm();
+      setSuccessMessage("写真を保存しました。");
+    } catch {
+      if (!canUpdateSaveState(requestId)) return;
+      setPhotoSaveWarning(
+        "写真の保存結果を確認できませんでした。写真だけ再試行してください。",
+      );
+    } finally {
+      if (canUpdateSaveState(requestId)) setIsSavingPhoto(false);
     }
   };
 
@@ -557,6 +755,8 @@ function MyPlantCareRecordPage({
 
   const plant = allPlants.find((item) => item.id === userPlant.plantId);
   const displayName = userPlant.nickname || "設定なし";
+  const isBusy = isSaving || isSavingPhoto;
+  const isFormLocked = isBusy || Boolean(pendingPhotoRecordId);
 
   return (
     <main className="app-main plant-care-page">
@@ -603,21 +803,32 @@ function MyPlantCareRecordPage({
                 clearFeedback();
                 setRecordDate(event.target.value);
               }}
-              disabled={isSaving}
+              disabled={isFormLocked}
               required
             />
           </div>
 
-          <PlantPhotoSelector
-            disabled={isSaving || isCompressingPhoto}
-            errorMessage={photoError}
-            isCompressing={isCompressingPhoto}
-            onChange={(event) => void handlePhotoChange(event)}
-            onRemove={clearSelectedPhoto}
-            photo={selectedPhoto}
-          />
+          {isEditing ? (
+            <section className="plant-care-photo-field" aria-labelledby="plant-care-photo-title">
+              <div className="plant-care-photo-field__heading">
+                <h3 id="plant-care-photo-title">写真</h3>
+              </div>
+              <div className="plant-care-photo-note" role="note">
+                <strong>保存済み記録への写真追加・変更は、次の段階で対応します。</strong>
+              </div>
+            </section>
+          ) : (
+            <PlantPhotoSelector
+              disabled={isBusy || isCompressingPhoto || Boolean(pendingPhotoRecordId)}
+              errorMessage={photoError}
+              isCompressing={isCompressingPhoto}
+              onChange={(event) => void handlePhotoChange(event)}
+              onRemove={clearSelectedPhoto}
+              photo={selectedPhoto}
+            />
+          )}
 
-          <fieldset className="plant-care-fieldset" disabled={isSaving}>
+          <fieldset className="plant-care-fieldset" disabled={isFormLocked}>
             <legend>植物の状態</legend>
             <p>現在の状態を1つ選択してください。</p>
             <div className="plant-care-options">
@@ -648,14 +859,14 @@ function MyPlantCareRecordPage({
                   clearFeedback();
                   setConditionOther(event.target.value);
                 }}
-                disabled={isSaving}
+                disabled={isFormLocked}
                 required
               />
               <small>{conditionOther.length}/200文字</small>
             </div>
           )}
 
-          <fieldset className="plant-care-fieldset" disabled={isSaving}>
+          <fieldset className="plant-care-fieldset" disabled={isFormLocked}>
             <legend>行った作業</legend>
             <p>当てはまる作業を1つ以上選択してください。</p>
             <div className="plant-care-options">
@@ -685,7 +896,7 @@ function MyPlantCareRecordPage({
                   clearFeedback();
                   setWorkOther(event.target.value);
                 }}
-                disabled={isSaving}
+                disabled={isFormLocked}
                 required
               />
               <small>{workOther.length}/200文字</small>
@@ -705,7 +916,7 @@ function MyPlantCareRecordPage({
                 clearFeedback();
                 setMemo(event.target.value);
               }}
-              disabled={isSaving}
+              disabled={isFormLocked}
               placeholder="気づいたことや、次回確認したいこと"
             />
             <small>{memo.length}/2000文字</small>
@@ -727,6 +938,22 @@ function MyPlantCareRecordPage({
               </div>
             </div>
           )}
+          {photoSaveWarning && pendingPhotoRecordId && (
+            <div className="alert-box alert-box--warning plant-care-photo-retry" role="alert">
+              <div>
+                <strong>写真の保存を完了できませんでした</strong>
+                <p>{photoSaveWarning}</p>
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={isBusy || isCompressingPhoto}
+                  onClick={() => void handlePhotoRetry()}
+                >
+                  {isSavingPhoto ? "写真を保存中…" : "写真だけ再試行する"}
+                </button>
+              </div>
+            </div>
+          )}
           {successMessage && (
             <div className="plant-care-success" role="status">
               <strong>{successMessage}</strong>
@@ -740,11 +967,11 @@ function MyPlantCareRecordPage({
           <button
             className="primary-button plant-care-submit"
             type="submit"
-            disabled={isSaving || isCompressingPhoto}
+            disabled={isBusy || isCompressingPhoto || Boolean(pendingPhotoRecordId)}
           >
             {isCompressingPhoto
               ? "写真を圧縮中…"
-              : isSaving
+              : isBusy
                 ? (isEditing ? "更新中…" : "保存中…")
                 : (isEditing ? "変更を保存する" : "記録を保存する")}
           </button>
