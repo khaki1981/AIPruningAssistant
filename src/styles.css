@@ -2479,6 +2479,94 @@ textarea:disabled {
   opacity: 0.65;
 }
 
+.plant-care-photo-management__actions,
+.plant-care-photo-management__save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.plant-care-photo-management__actions > button,
+.plant-care-photo-management__save-actions > button,
+.plant-care-photo-cleanup button {
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-primary-strong);
+  background: white;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.plant-care-photo-management__actions > button:hover:not(:disabled),
+.plant-care-photo-management__actions > button:focus-visible,
+.plant-care-photo-management__save-actions > button:hover:not(:disabled),
+.plant-care-photo-management__save-actions > button:focus-visible,
+.plant-care-photo-cleanup button:hover:not(:disabled),
+.plant-care-photo-cleanup button:focus-visible {
+  border-color: var(--color-primary);
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+.plant-care-photo-management__actions > button:disabled,
+.plant-care-photo-management__save-actions > button:disabled,
+.plant-care-photo-cleanup button:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+
+.plant-care-photo-management__actions .plant-care-photo-management__delete {
+  border-color: #d9aaa4;
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.plant-care-photo-management__editor {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.plant-care-photo-management__editor > .plant-care-photo-field {
+  margin: 0;
+  background: white;
+}
+
+.plant-care-photo-management__success {
+  padding: 12px 14px;
+  border: 1px solid rgba(70, 126, 91, 0.3);
+  border-radius: var(--radius-small);
+  color: var(--color-primary-strong);
+  background: var(--color-primary-light);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.plant-care-photo-cleanup {
+  display: grid;
+  min-width: 0;
+  padding: 14px;
+  gap: 8px;
+  border: 1px solid #d7b66c;
+  border-radius: var(--radius-small);
+  color: var(--color-text-strong);
+  background: #fff8e8;
+  overflow-wrap: anywhere;
+}
+
+.plant-care-photo-cleanup p {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.plant-care-photo-cleanup button {
+  justify-self: start;
+}
+
 .saved-plant-photo {
   min-width: 0;
 }

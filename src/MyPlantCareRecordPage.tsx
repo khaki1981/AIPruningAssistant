@@ -12,8 +12,11 @@ import type {
 } from "./data/plantCareRecords";
 import { loadPlants } from "./data/loadPlants";
 import {
+  cleanupPreviousPlantCareRecordPhotoFile,
   createPlantCareRecordPhotoSignedUrl,
+  deletePlantCareRecordPhoto,
   getPlantCareRecordPhoto,
+  replacePlantCareRecordPhoto,
   savePlantCareRecordPhoto,
   validateCompressedPlantCarePhoto,
 } from "./data/plantCareRecordPhotos";
@@ -65,17 +68,27 @@ function formatFileSize(bytes: number) {
 function PlantPhotoSelector({
   disabled,
   errorMessage,
+  inputId = "plant-care-photo",
   isCompressing,
+  noteText = "元画像はアップロードされません。写真なしでも記録できます。",
+  noteTitle = "圧縮済みの写真だけを手入れ記録と一緒に保存します。",
   onChange,
   onRemove,
   photo,
+  removeLabel = "写真を削除する",
+  title = "写真（任意）",
 }: {
   disabled: boolean;
   errorMessage: string;
+  inputId?: string;
   isCompressing: boolean;
+  noteText?: string;
+  noteTitle?: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemove: () => void;
   photo: CompressedPlantPhoto | null;
+  removeLabel?: string;
+  title?: string;
 }) {
   const reductionRate =
     photo && photo.originalSize > 0 && photo.compressedSize < photo.originalSize
@@ -84,21 +97,21 @@ function PlantPhotoSelector({
   const outputFormat = photo?.outputMimeType === "image/webp" ? "WebP" : "JPEG";
 
   return (
-    <section className="plant-care-photo-field" aria-labelledby="plant-care-photo-title">
+    <section className="plant-care-photo-field" aria-labelledby={`${inputId}-title`}>
       <div className="plant-care-photo-field__heading">
-        <h3 id="plant-care-photo-title">写真（任意）</h3>
+        <h3 id={`${inputId}-title`}>{title}</h3>
         <p>植物の現在の状態が分かる写真を1枚選択してください。</p>
         <p>写真は端末内で縮小・圧縮してプレビューします。</p>
       </div>
 
       <div className="plant-care-photo-note" role="note">
-        <strong>圧縮済みの写真だけを手入れ記録と一緒に保存します。</strong>
-        <span>元画像はアップロードされません。写真なしでも記録できます。</span>
+        <strong>{noteTitle}</strong>
+        <span>{noteText}</span>
       </div>
 
       <input
         className="visually-hidden"
-        id="plant-care-photo"
+        id={inputId}
         type="file"
         accept="image/*"
         disabled={disabled}
@@ -106,7 +119,7 @@ function PlantPhotoSelector({
       />
       <label
         className={`plant-care-photo-picker${disabled ? " is-disabled" : ""}`}
-        htmlFor="plant-care-photo"
+        htmlFor={inputId}
         aria-disabled={disabled}
       >
         <strong>
@@ -173,7 +186,7 @@ function PlantPhotoSelector({
             disabled={disabled}
             onClick={onRemove}
           >
-            写真を削除する
+            {removeLabel}
           </button>
         </div>
       )}
@@ -228,6 +241,13 @@ function MyPlantCareRecordPage({
   const [savedPhotoAutomaticRetryUsed, setSavedPhotoAutomaticRetryUsed] =
     useState(false);
   const [savedPhotoRetryKey, setSavedPhotoRetryKey] = useState(0);
+  const [isChangingSavedPhoto, setIsChangingSavedPhoto] = useState(false);
+  const [isDeletingSavedPhoto, setIsDeletingSavedPhoto] = useState(false);
+  const [isCleaningPreviousPhoto, setIsCleaningPreviousPhoto] = useState(false);
+  const [photoManagementError, setPhotoManagementError] = useState("");
+  const [photoManagementSuccess, setPhotoManagementSuccess] = useState("");
+  const [pendingPreviousStoragePath, setPendingPreviousStoragePath] =
+    useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const selectedPhotoRef = useRef<CompressedPlantPhoto | null>(null);
   const photoRequestIdRef = useRef(0);
@@ -235,6 +255,7 @@ function MyPlantCareRecordPage({
   const recordAttemptIdRef = useRef<string | null>(null);
   const savedPhotoRequestIdRef = useRef(0);
   const savedPhotoFailedUrlRef = useRef<string | null>(null);
+  const photoManagementRequestIdRef = useRef(0);
   const isMountedRef = useRef(true);
   const today = getLocalDateValue();
   const isEditing = recordId !== undefined;
@@ -271,8 +292,15 @@ function MyPlantCareRecordPage({
     setSavedPhotoUrl(null);
     setSavedPhotoStatus("idle");
     setSavedPhotoAutomaticRetryUsed(false);
+    setIsChangingSavedPhoto(false);
+    setIsDeletingSavedPhoto(false);
+    setIsCleaningPreviousPhoto(false);
+    setPhotoManagementError("");
+    setPhotoManagementSuccess("");
+    setPendingPreviousStoragePath(null);
     savedPhotoFailedUrlRef.current = null;
     savedPhotoRequestIdRef.current += 1;
+    photoManagementRequestIdRef.current += 1;
 
     if (!userId) return;
     if (
@@ -387,6 +415,7 @@ function MyPlantCareRecordPage({
       saveRequestIdRef.current += 1;
       photoRequestIdRef.current += 1;
       savedPhotoRequestIdRef.current += 1;
+      photoManagementRequestIdRef.current += 1;
       if (selectedPhotoRef.current) {
         releaseCompressedPlantPhoto(selectedPhotoRef.current);
         selectedPhotoRef.current = null;
@@ -464,6 +493,7 @@ function MyPlantCareRecordPage({
   };
 
   const handleSavedPhotoError = (failedUrl: string) => {
+    if (isSavingPhoto || isDeletingSavedPhoto || isCleaningPreviousPhoto) return;
     if (!savedPhoto || savedPhotoUrl !== failedUrl) return;
     if (savedPhotoFailedUrlRef.current === failedUrl) return;
     savedPhotoFailedUrlRef.current = failedUrl;
@@ -476,11 +506,349 @@ function MyPlantCareRecordPage({
   };
 
   const retrySavedPhoto = () => {
+    if (isSavingPhoto || isDeletingSavedPhoto || isCleaningPreviousPhoto) return;
     if (savedPhoto) {
       void refreshSavedPhotoUrl(savedPhoto, false);
       return;
     }
     setSavedPhotoRetryKey((current) => current + 1);
+  };
+
+  const canUpdatePhotoManagementState = (requestId: number) =>
+    isMountedRef.current && photoManagementRequestIdRef.current === requestId;
+
+  const clearPhotoManagementFeedback = () => {
+    setPhotoManagementError("");
+    setPhotoManagementSuccess("");
+  };
+
+  const confirmOwnedRecord = async () => {
+    if (!userId || !userPlant || !recordId) return false;
+    const [ownedPlant, ownedRecord] = await Promise.all([
+      getUserPlantById({ userPlantId: userPlant.id, userId }),
+      getPlantCareRecord({ recordId, userPlantId: userPlant.id, userId }),
+    ]);
+    return Boolean(
+      ownedPlant &&
+        ownedPlant.id === userPlant.id &&
+        ownedPlant.userId === userId &&
+        ownedRecord,
+    );
+  };
+
+  const handleManagedPhotoSave = async () => {
+    if (
+      !isEditing ||
+      !recordId ||
+      !userId ||
+      !userPlant ||
+      !selectedPhoto ||
+      isSaving ||
+      isSavingPhoto ||
+      isDeletingSavedPhoto ||
+      isCleaningPreviousPhoto ||
+      isCompressingPhoto ||
+      pendingPreviousStoragePath
+    ) return;
+
+    clearPhotoManagementFeedback();
+    try {
+      validateCompressedPlantCarePhoto(selectedPhoto);
+    } catch (error) {
+      setPhotoError(
+        error instanceof Error
+          ? error.message
+          : "圧縮済み写真を保存できません。別の写真を選択してください。",
+      );
+      return;
+    }
+
+    const requestId = photoManagementRequestIdRef.current + 1;
+    photoManagementRequestIdRef.current = requestId;
+    savedPhotoRequestIdRef.current += 1;
+    setIsSavingPhoto(true);
+
+    try {
+      if (!(await confirmOwnedRecord())) {
+        if (canUpdatePhotoManagementState(requestId)) {
+          setPhotoManagementError(
+            "対象の記録が見つからないか、このアカウントでは利用できません。",
+          );
+        }
+        return;
+      }
+      if (!canUpdatePhotoManagementState(requestId)) return;
+
+      const latestPhoto = await getPlantCareRecordPhoto({
+        recordId,
+        userPlantId: userPlant.id,
+        userId,
+      });
+      if (!canUpdatePhotoManagementState(requestId)) return;
+
+      let nextPhoto: PlantCareRecordPhoto | null = null;
+      let previousStoragePath: string | null = null;
+      if (savedPhoto) {
+        if (!latestPhoto) {
+          setPhotoManagementError(
+            "写真情報が別の操作で変更されました。写真欄を再読み込みしてください。",
+          );
+          return;
+        }
+        const result = await replacePlantCareRecordPhoto({
+          currentPhoto: savedPhoto,
+          photo: selectedPhoto,
+          recordId,
+          userPlantId: userPlant.id,
+          userId,
+        });
+        if (!canUpdatePhotoManagementState(requestId)) return;
+        if (result.status !== "saved" || !result.photo || !result.previousStoragePath) {
+          setPhotoManagementError(
+            result.status === "unknown"
+              ? "写真の変更結果を確認できませんでした。同じ写真で再試行してください。"
+              : result.status === "conflict"
+                ? "写真情報が別の操作で変更されました。写真欄を再読み込みしてください。"
+                : result.cleanupFailed
+                  ? "写真を変更できず、新しい写真ファイルの整理にも失敗しました。同じ写真で再試行してください。"
+                  : "写真を変更できませんでした。同じ写真で再試行できます。",
+          );
+          return;
+        }
+        nextPhoto = result.photo;
+        previousStoragePath = result.previousStoragePath;
+      } else {
+        if (latestPhoto) {
+          setPhotoManagementError(
+            "写真情報が別の操作で変更されました。写真欄を再読み込みしてください。",
+          );
+          return;
+        }
+        const result = await savePlantCareRecordPhoto({
+          photo: selectedPhoto,
+          recordId,
+          userPlantId: userPlant.id,
+          userId,
+        });
+        if (!canUpdatePhotoManagementState(requestId)) return;
+        if (result.status !== "saved") {
+          setPhotoManagementError(
+            result.status === "unknown"
+              ? "写真の追加結果を確認できませんでした。同じ写真で再試行してください。"
+              : result.status === "conflict"
+                ? "別の写真情報が存在するため追加できません。写真欄を再読み込みしてください。"
+                : result.cleanupFailed
+                  ? "写真を追加できず、写真ファイルの整理にも失敗しました。同じ写真で再試行してください。"
+                  : "写真を追加できませんでした。同じ写真で再試行できます。",
+          );
+          return;
+        }
+        nextPhoto = await getPlantCareRecordPhoto({
+          recordId,
+          userPlantId: userPlant.id,
+          userId,
+        });
+        if (!canUpdatePhotoManagementState(requestId)) return;
+        if (!nextPhoto) {
+          setPhotoManagementError(
+            "写真の保存結果を確認できませんでした。同じ写真で再試行してください。",
+          );
+          return;
+        }
+      }
+
+      setSavedPhoto(nextPhoto);
+      setSavedPhotoUrl(null);
+      setSavedPhotoStatus("loading");
+      setSavedPhotoAutomaticRetryUsed(false);
+      savedPhotoFailedUrlRef.current = null;
+      if (previousStoragePath) setPendingPreviousStoragePath(previousStoragePath);
+
+      let signedUrl: string;
+      try {
+        signedUrl = await createPlantCareRecordPhotoSignedUrl({
+          photo: nextPhoto,
+          userPlantId: userPlant.id,
+          userId,
+        });
+      } catch {
+        if (!canUpdatePhotoManagementState(requestId)) return;
+        clearSelectedPhoto();
+        setIsChangingSavedPhoto(false);
+        setSavedPhotoStatus("error");
+        setPhotoManagementError(
+          previousStoragePath
+            ? "写真は変更されましたが、新しい写真の表示確認と以前の写真ファイルの整理を完了できませんでした。"
+            : "写真は追加されましたが、表示用URLを発行できませんでした。写真だけ再読み込みしてください。",
+        );
+        return;
+      }
+      if (!canUpdatePhotoManagementState(requestId)) return;
+
+      setSavedPhotoUrl(signedUrl);
+      setSavedPhotoStatus("ready");
+      clearSelectedPhoto();
+      setIsChangingSavedPhoto(false);
+
+      if (!previousStoragePath) {
+        setPhotoManagementSuccess("写真を追加しました。");
+        return;
+      }
+
+      const cleanup = await cleanupPreviousPlantCareRecordPhotoFile({
+        currentPhoto: nextPhoto,
+        previousStoragePath,
+        recordId,
+        userPlantId: userPlant.id,
+        userId,
+      });
+      if (!canUpdatePhotoManagementState(requestId)) return;
+      if (cleanup.status === "cleaned") {
+        setPendingPreviousStoragePath(null);
+        setPhotoManagementSuccess("写真を変更しました。");
+      } else {
+        setPhotoManagementError(
+          "写真は変更されましたが、以前の写真ファイルの整理に失敗しました。整理だけ再試行してください。",
+        );
+      }
+    } catch {
+      if (canUpdatePhotoManagementState(requestId)) {
+        setPhotoManagementError(
+          "写真の処理を完了できませんでした。通信状態を確認し、同じ写真で再試行してください。",
+        );
+      }
+    } finally {
+      if (canUpdatePhotoManagementState(requestId)) setIsSavingPhoto(false);
+    }
+  };
+
+  const retryPreviousPhotoCleanup = async () => {
+    if (
+      !recordId ||
+      !userId ||
+      !userPlant ||
+      !savedPhoto ||
+      !pendingPreviousStoragePath ||
+      isSaving ||
+      isSavingPhoto ||
+      isDeletingSavedPhoto ||
+      isCleaningPreviousPhoto
+    ) return;
+
+    const requestId = photoManagementRequestIdRef.current + 1;
+    photoManagementRequestIdRef.current = requestId;
+    clearPhotoManagementFeedback();
+    setIsCleaningPreviousPhoto(true);
+    try {
+      if (!(await confirmOwnedRecord())) {
+        if (canUpdatePhotoManagementState(requestId)) {
+          setPhotoManagementError(
+            "対象の記録が見つからないか、このアカウントでは利用できません。",
+          );
+        }
+        return;
+      }
+      const result = await cleanupPreviousPlantCareRecordPhotoFile({
+        currentPhoto: savedPhoto,
+        previousStoragePath: pendingPreviousStoragePath,
+        recordId,
+        userPlantId: userPlant.id,
+        userId,
+      });
+      if (!canUpdatePhotoManagementState(requestId)) return;
+      if (result.status === "cleaned") {
+        setPendingPreviousStoragePath(null);
+        setPhotoManagementSuccess("以前の写真ファイルを整理しました。");
+      } else {
+        setPhotoManagementError(
+          result.status === "conflict"
+            ? "写真情報が別の操作で変更されたため、整理を停止しました。"
+            : result.status === "unknown"
+              ? "以前の写真ファイルの状態を確認できませんでした。整理だけ再試行してください。"
+              : "以前の写真ファイルを整理できませんでした。整理だけ再試行してください。",
+        );
+      }
+    } catch {
+      if (canUpdatePhotoManagementState(requestId)) {
+        setPhotoManagementError(
+          "以前の写真ファイルを整理できませんでした。整理だけ再試行してください。",
+        );
+      }
+    } finally {
+      if (canUpdatePhotoManagementState(requestId)) {
+        setIsCleaningPreviousPhoto(false);
+      }
+    }
+  };
+
+  const handleSavedPhotoDelete = async () => {
+    if (
+      !recordId ||
+      !userId ||
+      !userPlant ||
+      !savedPhoto ||
+      pendingPreviousStoragePath ||
+      isSaving ||
+      isSavingPhoto ||
+      isDeletingSavedPhoto ||
+      isCleaningPreviousPhoto
+    ) return;
+    if (!window.confirm(
+      "この記録の写真だけを削除しますか？\n手入れ記録の内容は残ります。\nこの操作は取り消せません。",
+    )) return;
+
+    const requestId = photoManagementRequestIdRef.current + 1;
+    photoManagementRequestIdRef.current = requestId;
+    savedPhotoRequestIdRef.current += 1;
+    clearPhotoManagementFeedback();
+    setIsDeletingSavedPhoto(true);
+    try {
+      if (!(await confirmOwnedRecord())) {
+        if (canUpdatePhotoManagementState(requestId)) {
+          setPhotoManagementError(
+            "対象の記録が見つからないか、このアカウントでは利用できません。",
+          );
+        }
+        return;
+      }
+      const result = await deletePlantCareRecordPhoto({
+        expectedPhoto: savedPhoto,
+        recordId,
+        userPlantId: userPlant.id,
+        userId,
+      });
+      if (!canUpdatePhotoManagementState(requestId)) return;
+      if (result.status !== "deleted") {
+        setPhotoManagementError(
+          result.status === "unknown"
+            ? "写真の削除結果を確認できませんでした。同じ操作を再試行してください。"
+            : result.status === "conflict"
+              ? "写真情報が別の操作で変更されました。写真欄を再読み込みしてください。"
+              : "写真を削除できませんでした。同じ操作を再試行してください。",
+        );
+        return;
+      }
+
+      savedPhotoRequestIdRef.current += 1;
+      savedPhotoFailedUrlRef.current = null;
+      clearSelectedPhoto();
+      setSavedPhoto(null);
+      setSavedPhotoUrl(null);
+      setSavedPhotoStatus("none");
+      setSavedPhotoAutomaticRetryUsed(false);
+      setIsChangingSavedPhoto(false);
+      setPhotoManagementSuccess("写真だけを削除しました。手入れ記録は残っています。");
+    } catch {
+      if (canUpdatePhotoManagementState(requestId)) {
+        setPhotoManagementError(
+          "写真を削除できませんでした。通信状態を確認し、同じ操作を再試行してください。",
+        );
+      }
+    } finally {
+      if (canUpdatePhotoManagementState(requestId)) {
+        setIsDeletingSavedPhoto(false);
+      }
+    }
   };
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -490,11 +858,15 @@ function MyPlantCareRecordPage({
       !file ||
       isSaving ||
       isSavingPhoto ||
+      isDeletingSavedPhoto ||
+      isCleaningPreviousPhoto ||
       isCompressingPhoto ||
-      pendingPhotoRecordId
+      pendingPhotoRecordId ||
+      pendingPreviousStoragePath
     ) return;
 
-    clearFeedback();
+    if (isEditing) clearPhotoManagementFeedback();
+    else clearFeedback();
     setPhotoError("");
     const requestId = photoRequestIdRef.current + 1;
     photoRequestIdRef.current = requestId;
@@ -544,6 +916,8 @@ function MyPlantCareRecordPage({
     if (
       isSaving ||
       isSavingPhoto ||
+      isDeletingSavedPhoto ||
+      isCleaningPreviousPhoto ||
       isCompressingPhoto ||
       pendingPhotoRecordId
     ) return;
@@ -612,7 +986,7 @@ function MyPlantCareRecordPage({
       return;
     }
 
-    if (selectedPhoto) {
+    if (!isEditing && selectedPhoto) {
       try {
         validateCompressedPlantCarePhoto(selectedPhoto);
       } catch (error) {
@@ -873,7 +1247,9 @@ function MyPlantCareRecordPage({
 
   const plant = allPlants.find((item) => item.id === userPlant.plantId);
   const displayName = userPlant.nickname || "設定なし";
-  const isBusy = isSaving || isSavingPhoto;
+  const isPhotoOperationBusy =
+    isSavingPhoto || isDeletingSavedPhoto || isCleaningPreviousPhoto;
+  const isBusy = isSaving || isPhotoOperationBusy;
   const isFormLocked = isBusy || Boolean(pendingPhotoRecordId);
 
   return (
@@ -941,7 +1317,7 @@ function MyPlantCareRecordPage({
               {savedPhotoStatus === "none" && (
                 <div className="plant-care-photo-note" role="note">
                   <strong>保存されている写真はありません。</strong>
-                  <span>既存記録への写真追加は、次の段階で対応します。</span>
+                  <span>圧縮済みの写真を1枚追加できます。</span>
                 </div>
               )}
               {savedPhoto &&
@@ -963,11 +1339,115 @@ function MyPlantCareRecordPage({
                   <button type="button" onClick={retrySavedPhoto}>
                     写真だけ再読み込みする
                   </button>
+                  </div>
+                )}
+              {photoManagementSuccess && (
+                <div className="plant-care-photo-management__success" role="status">
+                  {photoManagementSuccess}
                 </div>
               )}
-              <div className="plant-care-photo-note" role="note">
-                <span>写真の追加・変更・写真だけの削除は、次の段階で対応します。</span>
-              </div>
+              {photoManagementError && (
+                <div className="alert-box alert-box--warning" role="alert">
+                  <div>
+                    <strong>写真の操作を完了できませんでした</strong>
+                    <p>{photoManagementError}</p>
+                  </div>
+                </div>
+              )}
+              {pendingPreviousStoragePath && savedPhoto && (
+                <div className="plant-care-photo-cleanup" role="alert">
+                  <strong>以前の写真ファイルの整理が必要です</strong>
+                  <p>整理が終わるまで、写真の変更・削除はできません。</p>
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => void retryPreviousPhotoCleanup()}
+                  >
+                    {isCleaningPreviousPhoto
+                      ? "以前の写真を整理中…"
+                      : "以前の写真の整理だけ再試行する"}
+                  </button>
+                </div>
+              )}
+              {savedPhoto &&
+                savedPhotoStatus !== "loading" &&
+                !isChangingSavedPhoto && (
+                <div className="plant-care-photo-management__actions">
+                  <button
+                    type="button"
+                    disabled={isBusy || Boolean(pendingPreviousStoragePath)}
+                    onClick={() => {
+                      clearPhotoManagementFeedback();
+                      clearSelectedPhoto();
+                      setIsChangingSavedPhoto(true);
+                    }}
+                  >
+                    写真を変更する
+                  </button>
+                  <button
+                    className="plant-care-photo-management__delete"
+                    type="button"
+                    disabled={isBusy || Boolean(pendingPreviousStoragePath)}
+                    onClick={() => void handleSavedPhotoDelete()}
+                  >
+                    {isDeletingSavedPhoto ? "写真を削除中…" : "写真だけ削除する"}
+                  </button>
+                </div>
+              )}
+              {(savedPhotoStatus === "none" ||
+                (savedPhoto && isChangingSavedPhoto)) && (
+                <div className="plant-care-photo-management__editor">
+                  <PlantPhotoSelector
+                    disabled={
+                      isBusy ||
+                      isCompressingPhoto ||
+                      Boolean(pendingPreviousStoragePath)
+                    }
+                    errorMessage={photoError}
+                    inputId="plant-care-managed-photo"
+                    isCompressing={isCompressingPhoto}
+                    noteTitle="圧縮済みの写真だけを保存します。"
+                    noteText="元画像はアップロードされず、Exif・GPS情報も引き継がれません。"
+                    onChange={(event) => void handlePhotoChange(event)}
+                    onRemove={clearSelectedPhoto}
+                    photo={selectedPhoto}
+                    removeLabel="選択を解除する"
+                    title={savedPhoto ? "変更後の写真" : "追加する写真"}
+                  />
+                  <div className="plant-care-photo-management__save-actions">
+                    <button
+                      className="primary-button"
+                      type="button"
+                      disabled={
+                        isBusy ||
+                        isCompressingPhoto ||
+                        !selectedPhoto ||
+                        Boolean(pendingPreviousStoragePath)
+                      }
+                      onClick={() => void handleManagedPhotoSave()}
+                    >
+                      {isSavingPhoto
+                        ? "写真を保存中…"
+                        : savedPhoto
+                          ? "この写真に変更する"
+                          : "この写真を追加する"}
+                    </button>
+                    {savedPhoto && (
+                      <button
+                        type="button"
+                        disabled={isBusy || isCompressingPhoto}
+                        onClick={() => {
+                          clearSelectedPhoto();
+                          clearPhotoManagementFeedback();
+                          setIsChangingSavedPhoto(false);
+                        }}
+                      >
+                        変更をやめる
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
           ) : (
             <PlantPhotoSelector
