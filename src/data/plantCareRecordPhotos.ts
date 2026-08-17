@@ -33,7 +33,8 @@ type PhotoIdentity = {
 
 type MetadataCheckResult =
   | { status: "found"; photo: PlantCareRecordPhoto }
-  | { status: "not_found" | "unknown" };
+  | { status: "not_found" }
+  | { status: "unknown" };
 
 type StorageCheckResult = "exists" | "not_found" | "unknown";
 
@@ -45,6 +46,21 @@ export type SavePlantCareRecordPhotoResult = {
 export type PlantCareRecordPhotoSignedUrlResult = {
   photo: PlantCareRecordPhoto;
   signedUrl: string | null;
+};
+
+export type ReplacePlantCareRecordPhotoResult = {
+  cleanupFailed: boolean;
+  photo?: PlantCareRecordPhoto;
+  previousStoragePath?: string;
+  status: "saved" | "failed" | "unknown" | "conflict";
+};
+
+export type DeletePlantCareRecordPhotoResult = {
+  status: "deleted" | "failed" | "unknown" | "conflict";
+};
+
+export type CleanupPreviousPlantCareRecordPhotoResult = {
+  status: "cleaned" | "failed" | "unknown" | "conflict";
 };
 
 const photoColumns =
@@ -426,6 +442,24 @@ function photoMetadataMatches(
   );
 }
 
+function plantCareRecordPhotosMatch(
+  left: PlantCareRecordPhoto,
+  right: PlantCareRecordPhoto,
+) {
+  return (
+    left.id === right.id &&
+    left.plantCareRecordId === right.plantCareRecordId &&
+    left.userPlantId === right.userPlantId &&
+    left.userId === right.userId &&
+    left.storagePath === right.storagePath &&
+    left.mimeType === right.mimeType &&
+    left.sizeBytes === right.sizeBytes &&
+    left.width === right.width &&
+    left.height === right.height &&
+    left.createdAt === right.createdAt
+  );
+}
+
 async function uploadMissingStorageFile(expected: PhotoIdentity) {
   const client = requireSupabase();
   const { error } = await client.storage
@@ -547,6 +581,230 @@ export async function savePlantCareRecordPhoto(input: {
 
   // Reuse an exact-path orphan when it exists; otherwise use the new upload.
   return insertAndConfirmPhotoMetadata(expected);
+}
+
+async function ensureExpectedStorageFile(expected: PhotoIdentity) {
+  const storage = await checkStoragePath(expected.storagePath);
+  if (storage === "unknown") return "unknown" as const;
+  if (storage === "exists") return "exists" as const;
+  return uploadMissingStorageFile(expected);
+}
+
+export async function replacePlantCareRecordPhoto(input: {
+  currentPhoto: PlantCareRecordPhoto;
+  photo: CompressedPlantPhoto;
+  recordId: string;
+  userId: string;
+  userPlantId: string;
+}): Promise<ReplacePlantCareRecordPhotoResult> {
+  validateCompressedPlantCarePhoto(input.photo);
+  if (
+    input.currentPhoto.plantCareRecordId !== input.recordId ||
+    !isPhotoInExpectedScope(input.currentPhoto, input)
+  ) {
+    return { status: "conflict", cleanupFailed: false };
+  }
+
+  const expected: PhotoIdentity = {
+    photo: input.photo,
+    recordId: input.recordId,
+    userId: input.userId,
+    userPlantId: input.userPlantId,
+    storagePath: buildStoragePath({
+      fileName: input.photo.file.name,
+      recordId: input.recordId,
+      userId: input.userId,
+      userPlantId: input.userPlantId,
+    }),
+  };
+  if (expected.storagePath === input.currentPhoto.storagePath) {
+    return { status: "conflict", cleanupFailed: false };
+  }
+
+  const beforeUpdate = await checkPlantCareRecordPhoto(input);
+  if (beforeUpdate.status === "unknown") {
+    return { status: "unknown", cleanupFailed: false };
+  }
+  if (beforeUpdate.status === "not_found") {
+    return { status: "conflict", cleanupFailed: false };
+  }
+
+  if (photoMetadataMatches(beforeUpdate.photo, expected)) {
+    const storage = await ensureExpectedStorageFile(expected);
+    if (storage !== "exists") {
+      return {
+        status: storage === "unknown" ? "unknown" : "failed",
+        cleanupFailed: false,
+      };
+    }
+    return {
+      status: "saved",
+      cleanupFailed: false,
+      photo: beforeUpdate.photo,
+      previousStoragePath: input.currentPhoto.storagePath,
+    };
+  }
+
+  if (!plantCareRecordPhotosMatch(beforeUpdate.photo, input.currentPhoto)) {
+    return { status: "conflict", cleanupFailed: false };
+  }
+
+  const storage = await ensureExpectedStorageFile(expected);
+  if (storage !== "exists") {
+    return {
+      status: storage === "unknown" ? "unknown" : "failed",
+      cleanupFailed: false,
+    };
+  }
+
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("plant_care_record_photos")
+    .update({
+      storage_path: expected.storagePath,
+      mime_type: expected.photo.outputMimeType,
+      size_bytes: expected.photo.file.size,
+      width: expected.photo.compressedWidth,
+      height: expected.photo.compressedHeight,
+    })
+    .eq("id", input.currentPhoto.id)
+    .eq("plant_care_record_id", input.recordId)
+    .eq("user_plant_id", input.userPlantId)
+    .eq("user_id", input.userId)
+    .eq("storage_path", input.currentPhoto.storagePath)
+    .select(photoColumns)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[plant-care-record-photos] Metadata update failed", {
+      code: error.code,
+    });
+  }
+
+  if (data) {
+    const updatedPhoto = toPlantCareRecordPhoto(data as PlantCareRecordPhotoRow);
+    if (photoMetadataMatches(updatedPhoto, expected)) {
+      return {
+        status: "saved",
+        cleanupFailed: false,
+        photo: updatedPhoto,
+        previousStoragePath: input.currentPhoto.storagePath,
+      };
+    }
+  }
+
+  const confirmation = await checkPlantCareRecordPhoto(input);
+  if (confirmation.status === "unknown") {
+    return { status: "unknown", cleanupFailed: false };
+  }
+  if (
+    confirmation.status === "found" &&
+    photoMetadataMatches(confirmation.photo, expected)
+  ) {
+    return {
+      status: "saved",
+      cleanupFailed: false,
+      photo: confirmation.photo,
+      previousStoragePath: input.currentPhoto.storagePath,
+    };
+  }
+  if (
+    confirmation.status === "found" &&
+    plantCareRecordPhotosMatch(confirmation.photo, input.currentPhoto)
+  ) {
+    const wasCleaned = await removeExactStoragePath(expected.storagePath);
+    return { status: "failed", cleanupFailed: !wasCleaned };
+  }
+  return { status: "conflict", cleanupFailed: false };
+}
+
+export async function cleanupPreviousPlantCareRecordPhotoFile(input: {
+  currentPhoto: PlantCareRecordPhoto;
+  previousStoragePath: string;
+  recordId: string;
+  userId: string;
+  userPlantId: string;
+}): Promise<CleanupPreviousPlantCareRecordPhotoResult> {
+  if (
+    input.currentPhoto.plantCareRecordId !== input.recordId ||
+    input.currentPhoto.storagePath === input.previousStoragePath ||
+    !isPhotoInExpectedScope(input.currentPhoto, input) ||
+    !isExpectedStoragePath({
+      path: input.previousStoragePath,
+      recordId: input.recordId,
+      userId: input.userId,
+      userPlantId: input.userPlantId,
+    })
+  ) {
+    return { status: "conflict" };
+  }
+
+  const current = await checkPlantCareRecordPhoto(input);
+  if (current.status === "unknown") return { status: "unknown" };
+  if (
+    current.status === "not_found" ||
+    !plantCareRecordPhotosMatch(current.photo, input.currentPhoto)
+  ) {
+    return { status: "conflict" };
+  }
+
+  return {
+    status: (await removeExactStoragePath(input.previousStoragePath))
+      ? "cleaned"
+      : "failed",
+  };
+}
+
+export async function deletePlantCareRecordPhoto(input: {
+  expectedPhoto: PlantCareRecordPhoto;
+  recordId: string;
+  userId: string;
+  userPlantId: string;
+}): Promise<DeletePlantCareRecordPhotoResult> {
+  if (
+    input.expectedPhoto.plantCareRecordId !== input.recordId ||
+    !isPhotoInExpectedScope(input.expectedPhoto, input)
+  ) {
+    return { status: "conflict" };
+  }
+
+  const latest = await checkPlantCareRecordPhoto(input);
+  if (latest.status === "unknown") return { status: "unknown" };
+  if (latest.status === "not_found") return { status: "deleted" };
+  if (!plantCareRecordPhotosMatch(latest.photo, input.expectedPhoto)) {
+    return { status: "conflict" };
+  }
+
+  if (!(await removeExactStoragePath(latest.photo.storagePath))) {
+    return { status: "failed" };
+  }
+
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("plant_care_record_photos")
+    .delete()
+    .eq("id", latest.photo.id)
+    .eq("plant_care_record_id", input.recordId)
+    .eq("user_plant_id", input.userPlantId)
+    .eq("user_id", input.userId)
+    .eq("storage_path", latest.photo.storagePath)
+    .select("id");
+
+  if (error) {
+    console.error("[plant-care-record-photos] Metadata delete failed", {
+      code: error.code,
+    });
+  }
+  if (data && data.length > 0) return { status: "deleted" };
+
+  const confirmation = await checkPlantCareRecordPhoto(input);
+  if (confirmation.status === "unknown") return { status: "unknown" };
+  if (confirmation.status === "not_found") return { status: "deleted" };
+  return {
+    status: plantCareRecordPhotosMatch(confirmation.photo, latest.photo)
+      ? "failed"
+      : "conflict",
+  };
 }
 
 export async function deletePlantCareRecordPhotoFile(input: {
