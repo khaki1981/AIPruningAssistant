@@ -9,6 +9,7 @@ interface AuthPageProps {
   onAuthenticated: () => void;
   onBackHome: () => void;
   onModeChange: (mode: AuthMode) => void;
+  sessionExpiredNotice?: boolean;
 }
 
 const minimumPasswordLength = 8;
@@ -18,6 +19,7 @@ function AuthPage({
   onAuthenticated,
   onBackHome,
   onModeChange,
+  sessionExpiredNotice = false,
 }: AuthPageProps) {
   const {
     authError,
@@ -148,6 +150,13 @@ function AuthPage({
               : "登録したメールアドレスとパスワードを入力してください。"}
           </p>
         </div>
+
+        {sessionExpiredNotice && (
+          <div className="auth-message auth-message--error" role="alert">
+            <strong>もう一度ログインしてください</strong>
+            <p>セッションの有効期限が切れました。</p>
+          </div>
+        )}
 
         {displayedError && (
           <div className="auth-message auth-message--error" role="alert">

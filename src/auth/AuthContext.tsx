@@ -18,6 +18,7 @@ type SignUpResult = {
 
 type AuthContextValue = {
   authError: string;
+  clearLocalSession: () => Promise<void>;
   clearAuthError: () => void;
   isConfigured: boolean;
   isInitializing: boolean;
@@ -120,8 +121,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
     });
 
+  const clearLocalSession = async () => {
+    setAuthError("");
+    try {
+      await supabase?.auth.signOut({ scope: "local" });
+    } catch {
+      // The server-side account may already be gone. Always clear the UI session.
+    } finally {
+      setSession(null);
+    }
+  };
+
   const value: AuthContextValue = {
     authError,
+    clearLocalSession,
     clearAuthError: () => setAuthError(""),
     isConfigured: isSupabaseConfigured,
     isInitializing,
