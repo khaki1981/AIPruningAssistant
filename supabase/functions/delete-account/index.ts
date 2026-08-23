@@ -22,6 +22,8 @@ const defaultAllowedOrigins = new Set([
   "https://aipruningassistant.netlify.app",
   "http://localhost:5173",
 ]);
+const deployPreviewOriginPattern =
+  /^https:\/\/deploy-preview-\d+--aipruningassistant\.netlify\.app$/;
 
 type AccountDeletionCode =
   | "account_deleted"
@@ -86,6 +88,12 @@ function getAllowedOrigins() {
   }
 
   return allowedOrigins;
+}
+
+function isAllowedOrigin(origin: string) {
+  return (
+    getAllowedOrigins().has(origin) || deployPreviewOriginPattern.test(origin)
+  );
 }
 
 function corsHeaders(origin: string) {
@@ -524,7 +532,7 @@ function logStageFailure(code: AccountDeletionFailureCode) {
 export default {
   async fetch(request: Request) {
     const origin = request.headers.get("origin");
-    if (!origin || !getAllowedOrigins().has(origin)) {
+    if (!origin || !isAllowedOrigin(origin)) {
       return errorResponse(null, 403, "origin_not_allowed");
     }
 
