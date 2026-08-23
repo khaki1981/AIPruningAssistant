@@ -1,5 +1,6 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import AccountSettingsPage from "./AccountSettingsPage";
 import AuthPage from "./AuthPage";
 import type { AuthMode } from "./AuthPage";
 import MyPlantEditPage from "./MyPlantEditPage";
@@ -8,6 +9,10 @@ import MyPlantCareRecordPage from "./MyPlantCareRecordPage";
 import MyPlantsPage from "./MyPlantsPage";
 import PlantListPage from "./PlantListPage";
 import { useAuth } from "./auth/AuthContext";
+import {
+  deleteCurrentAccount,
+  type AccountDeletionFailureCode,
+} from "./data/accountDeletion";
 import type { PruningStrength, UploadedPhoto } from "./types";
 
 const pruningOptions: PruningStrength[] = [
@@ -235,11 +240,13 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   );
 }
 
-type AppView = "home" | "diagnosis" | "plants" | "my-plants" | "auth";
+type AppView = "home" | "diagnosis" | "plants" | "my-plants" | "account" | "auth";
 
 type AppRoute = {
   view: AppView;
   authMode?: AuthMode;
+  authNotice?: "session-expired";
+  accountDeletionCompleted?: boolean;
   careFromMyPlants?: boolean;
   careEdit?: boolean;
   careHistory?: boolean;
@@ -264,6 +271,8 @@ function readRoute(value: unknown): AppRoute {
 
   const {
     authMode,
+    authNotice,
+    accountDeletionCompleted,
     careFromMyPlants,
     careEdit,
     careHistory,
@@ -279,6 +288,8 @@ function readRoute(value: unknown): AppRoute {
     view,
   } = route as {
     authMode?: unknown;
+    authNotice?: unknown;
+    accountDeletionCompleted?: unknown;
     careFromMyPlants?: unknown;
     careEdit?: unknown;
     careHistory?: unknown;
@@ -298,6 +309,7 @@ function readRoute(value: unknown): AppRoute {
     view !== "plants" &&
     view !== "my-plants" &&
     view !== "diagnosis" &&
+    view !== "account" &&
     view !== "auth"
   ) {
     return homeRoute;
@@ -305,8 +317,14 @@ function readRoute(value: unknown): AppRoute {
 
   return {
     view,
+    accountDeletionCompleted:
+      view === "home" && accountDeletionCompleted === true ? true : undefined,
     authMode:
       view === "auth" && authMode === "sign-up" ? "sign-up" : undefined,
+    authNotice:
+      view === "auth" && authNotice === "session-expired"
+        ? "session-expired"
+        : undefined,
     careFromMyPlants:
       view === "my-plants" &&
       typeof userPlantId === "string" &&
@@ -432,6 +450,7 @@ function AppHeader({
   email,
   isAuthInitializing,
   isAuthSubmitting,
+  isAccountDeletionInProgress,
   onNavigate,
   onSignOut,
 }: {
@@ -439,6 +458,7 @@ function AppHeader({
   email?: string;
   isAuthInitializing: boolean;
   isAuthSubmitting: boolean;
+  isAccountDeletionInProgress: boolean;
   onNavigate: (view: AppView) => void;
   onSignOut: () => void;
 }) {
@@ -450,6 +470,7 @@ function AppHeader({
           type="button"
           aria-label="剪定AIアシスタント ホームへ"
           onClick={() => onNavigate("home")}
+          disabled={isAccountDeletionInProgress}
         >
           <span className="brand__mark">
             <Icon name="scissors" size={21} />
@@ -463,6 +484,7 @@ function AppHeader({
               type="button"
               aria-current={activeView === "plants" ? "page" : undefined}
               onClick={() => onNavigate("plants")}
+              disabled={isAccountDeletionInProgress}
             >
               植物を調べる
             </button>
@@ -472,6 +494,7 @@ function AppHeader({
                 type="button"
                 aria-current={activeView === "my-plants" ? "page" : undefined}
                 onClick={() => onNavigate("my-plants")}
+                disabled={isAccountDeletionInProgress}
               >
                 自分の植物
               </button>
@@ -481,6 +504,7 @@ function AppHeader({
               type="button"
               aria-current={activeView === "diagnosis" ? "page" : undefined}
               onClick={() => onNavigate("diagnosis")}
+              disabled={isAccountDeletionInProgress}
             >
               AI診断
             </button>
@@ -494,7 +518,20 @@ function AppHeader({
                   <span>ログイン中</span>
                   <strong>{email}</strong>
                 </span>
-                <button type="button" onClick={onSignOut} disabled={isAuthSubmitting}>
+                <button
+                  className={activeView === "account" ? "is-active" : ""}
+                  type="button"
+                  aria-current={activeView === "account" ? "page" : undefined}
+                  onClick={() => onNavigate("account")}
+                  disabled={isAccountDeletionInProgress}
+                >
+                  アカウント設定
+                </button>
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  disabled={isAuthSubmitting || isAccountDeletionInProgress}
+                >
                   {isAuthSubmitting ? "処理中…" : "ログアウト"}
                 </button>
               </>
@@ -515,9 +552,29 @@ function AppHeader({
   );
 }
 
-function HomePage({ onOpenPlants }: { onOpenPlants: () => void }) {
+function HomePage({
+  accountDeletionCompleted,
+  onAccountDeletionMessageConsumed,
+  onOpenPlants,
+}: {
+  accountDeletionCompleted?: boolean;
+  onAccountDeletionMessageConsumed: () => void;
+  onOpenPlants: () => void;
+}) {
+  const [showAccountDeletionCompleted] = useState(accountDeletionCompleted === true);
+
+  useEffect(() => {
+    if (accountDeletionCompleted) onAccountDeletionMessageConsumed();
+  }, [accountDeletionCompleted, onAccountDeletionMessageConsumed]);
+
   return (
     <main className="app-main home-page">
+      {showAccountDeletionCompleted && (
+        <div className="auth-message auth-message--success home-page__account-message" role="status">
+          <strong>アカウントを削除しました</strong>
+          <p>ご利用ありがとうございました。</p>
+        </div>
+      )}
       <section className="intro home-page__intro" aria-labelledby="home-title">
         <div className="intro__copy">
           <span className="eyebrow">PRUNING GUIDE</span>
@@ -776,6 +833,7 @@ function AnalysisResult({ diagnosis }: { diagnosis: string }) {
 
 function App() {
   const {
+    clearLocalSession,
     isInitializing: isAuthInitializing,
     isSubmitting: isAuthSubmitting,
     signOut,
@@ -791,8 +849,13 @@ function App() {
   const [diagnosis, setDiagnosis] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAccountDeletionInProgress, setIsAccountDeletionInProgress] = useState(false);
   const diagnosisRef = useRef<HTMLElement>(null);
   const photosRef = useRef<UploadedPhoto[]>([]);
+  const accountDeletionLockRef = useRef(false);
+  const authStateRef = useRef({ isInitializing: isAuthInitializing, userId: user?.id });
+
+  authStateRef.current = { isInitializing: isAuthInitializing, userId: user?.id };
 
   useEffect(() => {
     return () =>
@@ -812,9 +875,23 @@ function App() {
 
     const handlePopState = (event: PopStateEvent) => {
       const storedRoute = readRoute(event.state);
-      const nextRoute = storedRoute.userPlantId
+      let nextRoute = storedRoute.userPlantId
         ? storedRoute
         : readMyPlantsRouteFromLocation() ?? storedRoute;
+      const authState = authStateRef.current;
+      if (
+        !accountDeletionLockRef.current &&
+        !authState.isInitializing &&
+        !authState.userId &&
+        (nextRoute.view === "account" || nextRoute.view === "my-plants")
+      ) {
+        nextRoute = homeRoute;
+        window.history.replaceState(
+          { pruningAssistantRoute: nextRoute },
+          "",
+          getRouteUrl(nextRoute),
+        );
+      }
       if (
         (nextRoute.plantConfirmation || nextRoute.plantGuidance) &&
         nextRoute.plantId
@@ -830,9 +907,12 @@ function App() {
   }, []);
 
   const navigate = (nextRoute: AppRoute) => {
+    if (accountDeletionLockRef.current) return;
     if (
       route.view === nextRoute.view &&
       route.authMode === nextRoute.authMode &&
+      route.authNotice === nextRoute.authNotice &&
+      route.accountDeletionCompleted === nextRoute.accountDeletionCompleted &&
       route.careFromMyPlants === nextRoute.careFromMyPlants &&
       route.careEdit === nextRoute.careEdit &&
       route.careHistory === nextRoute.careHistory &&
@@ -881,6 +961,23 @@ function App() {
     window.scrollTo({ top: 0 });
   };
 
+  useEffect(() => {
+    if (
+      isAuthInitializing ||
+      user ||
+      accountDeletionLockRef.current ||
+      (route.view !== "account" && route.view !== "my-plants")
+    ) {
+      return;
+    }
+    replaceRoute(homeRoute);
+  }, [isAuthInitializing, route.view, user]);
+
+  const consumeAccountDeletionCompletion = () => {
+    if (!route.accountDeletionCompleted) return;
+    replaceRoute({ ...route, accountDeletionCompleted: undefined });
+  };
+
   const consumeMyPlantCompletion = () => {
     if (!route.myPlantCompletion) return;
     replaceRoute({ ...route, myPlantCompletion: undefined });
@@ -907,12 +1004,44 @@ function App() {
   };
 
   const handleSignOut = async () => {
+    if (accountDeletionLockRef.current) return;
     try {
       await signOut();
       resetTransientAppState();
       navigate(homeRoute);
     } catch {
       navigate({ view: "auth" });
+    }
+  };
+
+  const handleDeleteAccount = async (
+    password: string,
+  ): Promise<AccountDeletionFailureCode | null> => {
+    if (accountDeletionLockRef.current) return "request_in_progress";
+
+    accountDeletionLockRef.current = true;
+    setIsAccountDeletionInProgress(true);
+    try {
+      const result = await deleteCurrentAccount(password).finally(() => {
+        password = "";
+      });
+      if (!result.ok) {
+        if (result.code === "unauthorized") {
+          await clearLocalSession();
+          replaceRoute({ view: "auth", authNotice: "session-expired" });
+        }
+        return result.code;
+      }
+
+      await clearLocalSession();
+      resetTransientAppState();
+      replaceRoute({ view: "home", accountDeletionCompleted: true });
+      return null;
+    } catch {
+      return "unexpected_response";
+    } finally {
+      accountDeletionLockRef.current = false;
+      setIsAccountDeletionInProgress(false);
     }
   };
 
@@ -996,18 +1125,33 @@ function App() {
         email={user?.email}
         isAuthInitializing={isAuthInitializing}
         isAuthSubmitting={isAuthSubmitting}
+        isAccountDeletionInProgress={isAccountDeletionInProgress}
         onNavigate={navigateToView}
         onSignOut={() => void handleSignOut()}
       />
 
       {route.view === "home" ? (
-        <HomePage onOpenPlants={() => navigateToView("plants")} />
+        <HomePage
+          accountDeletionCompleted={route.accountDeletionCompleted}
+          onAccountDeletionMessageConsumed={consumeAccountDeletionCompletion}
+          onOpenPlants={() => navigateToView("plants")}
+        />
       ) : route.view === "auth" ? (
         <AuthPage
           mode={route.authMode ?? "sign-in"}
           onAuthenticated={finishAuthentication}
           onBackHome={() => navigateToView("home")}
           onModeChange={(authMode) => navigate({ view: "auth", authMode })}
+          sessionExpiredNotice={route.authNotice === "session-expired"}
+        />
+      ) : route.view === "account" ? (
+        <AccountSettingsPage
+          email={user?.email}
+          isAuthInitializing={isAuthInitializing}
+          isDeleting={isAccountDeletionInProgress}
+          onBackHome={() => navigateToView("home")}
+          onDeleteAccount={handleDeleteAccount}
+          onLogin={() => navigate({ view: "auth" })}
         />
       ) : route.view === "my-plants" ? (
         route.userPlantId ? (
