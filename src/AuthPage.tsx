@@ -1,6 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "./auth/AuthContext";
 import { supabaseConfigurationMessage } from "./auth/authErrors";
+import {
+  getPasswordRequirementError,
+  minimumPasswordLength,
+} from "./auth/passwordPolicy";
 
 export type AuthMode = "sign-in" | "sign-up";
 
@@ -8,17 +12,21 @@ interface AuthPageProps {
   mode: AuthMode;
   onAuthenticated: () => void;
   onBackHome: () => void;
+  onForgotPassword: () => void;
   onModeChange: (mode: AuthMode) => void;
+  onPasswordResetNoticeConsumed: () => void;
+  passwordResetCompletedNotice?: boolean;
   sessionExpiredNotice?: boolean;
 }
-
-const minimumPasswordLength = 8;
 
 function AuthPage({
   mode,
   onAuthenticated,
   onBackHome,
+  onForgotPassword,
   onModeChange,
+  onPasswordResetNoticeConsumed,
+  passwordResetCompletedNotice = false,
   sessionExpiredNotice = false,
 }: AuthPageProps) {
   const {
@@ -36,10 +44,18 @@ function AuthPage({
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [validationError, setValidationError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [showPasswordResetCompleted, setShowPasswordResetCompleted] = useState(
+    passwordResetCompletedNotice,
+  );
+
+  useEffect(() => {
+    if (passwordResetCompletedNotice) onPasswordResetNoticeConsumed();
+  }, [onPasswordResetNoticeConsumed, passwordResetCompletedNotice]);
 
   useEffect(() => {
     setValidationError("");
     setSuccessMessage("");
+    if (mode !== "sign-in") setShowPasswordResetCompleted(false);
   }, [mode]);
 
   const validate = () => {
@@ -50,9 +66,8 @@ function AuthPage({
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       return "メールアドレスの形式を確認してください。";
     }
-    if (password.length < minimumPasswordLength) {
-      return `パスワードは${minimumPasswordLength}文字以上で入力してください。`;
-    }
+    const passwordRequirementError = getPasswordRequirementError(password);
+    if (passwordRequirementError) return passwordRequirementError;
     if (mode === "sign-up" && password !== passwordConfirmation) {
       return "パスワードと確認用パスワードが一致しません。";
     }
@@ -113,6 +128,12 @@ function AuthPage({
           <p className="auth-card__description">
             {user.email ?? "メールアドレスを確認できません"} でログインしています。
           </p>
+          {showPasswordResetCompleted && (
+            <div className="auth-message auth-message--success" role="status">
+              <strong>パスワードを更新しました</strong>
+              <p>新しいパスワードでログインし直してください。</p>
+            </div>
+          )}
           {authError && (
             <div className="auth-message auth-message--error" role="alert">
               <strong>ログアウトできませんでした</strong>
@@ -155,6 +176,13 @@ function AuthPage({
           <div className="auth-message auth-message--error" role="alert">
             <strong>もう一度ログインしてください</strong>
             <p>セッションの有効期限が切れました。</p>
+          </div>
+        )}
+
+        {showPasswordResetCompleted && (
+          <div className="auth-message auth-message--success" role="status">
+            <strong>パスワードを更新しました</strong>
+            <p>新しいパスワードでログインしてください。</p>
           </div>
         )}
 
@@ -202,6 +230,20 @@ function AuthPage({
               </small>
             )}
           </div>
+
+          {!isSignUp && (
+            <button
+              className="auth-form__forgot"
+              type="button"
+              onClick={() => {
+                clearAuthError();
+                onForgotPassword();
+              }}
+              disabled={isSubmitting}
+            >
+              パスワードを忘れた方
+            </button>
+          )}
 
           {isSignUp && (
             <div className="field">

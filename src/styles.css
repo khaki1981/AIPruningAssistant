@@ -1760,6 +1760,32 @@ textarea:disabled {
   margin-top: 26px;
 }
 
+.auth-form__forgot {
+  display: block;
+  min-height: 44px;
+  margin: 4px 0 2px auto;
+  padding: 7px 4px;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--color-primary-strong);
+  background: transparent;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-form__forgot:hover:not(:disabled),
+.auth-form__forgot:focus-visible {
+  outline: 0;
+  background: var(--color-primary-light);
+  box-shadow: var(--focus-ring);
+}
+
+.auth-form__forgot:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+
 .auth-switch {
   margin-top: 24px;
   padding-top: 20px;
