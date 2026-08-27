@@ -927,10 +927,13 @@ function App() {
     setRoute(initialRoute);
 
     const handlePopState = (event: PopStateEvent) => {
+      const authRoute = readAuthRouteFromLocation();
       const storedRoute = readRoute(event.state);
-      let nextRoute = storedRoute.userPlantId
-        ? storedRoute
-        : readMyPlantsRouteFromLocation() ?? storedRoute;
+      let nextRoute =
+        authRoute ??
+        (storedRoute.userPlantId
+          ? storedRoute
+          : readMyPlantsRouteFromLocation() ?? storedRoute);
       const authState = authStateRef.current;
       if (
         !accountDeletionLockRef.current &&
