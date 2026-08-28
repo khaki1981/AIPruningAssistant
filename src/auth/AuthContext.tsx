@@ -3,6 +3,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import type { ReactNode } from "react";
@@ -11,6 +12,12 @@ import {
   getAuthErrorMessage,
   supabaseConfigurationMessage,
 } from "./authErrors";
+import {
+  getPasswordResetRedirectUrl,
+  isPasswordResetRouteRequested,
+  PasswordRecoveryUnavailableError,
+  type PasswordRecoveryStatus,
+} from "./passwordReset";
 
 type SignUpResult = {
   requiresEmailConfirmation: boolean;
@@ -23,10 +30,13 @@ type AuthContextValue = {
   isConfigured: boolean;
   isInitializing: boolean;
   isSubmitting: boolean;
+  passwordRecoveryStatus: PasswordRecoveryStatus;
+  requestPasswordReset: (email: string) => Promise<void>;
   session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   signUp: (email: string, password: string) => Promise<SignUpResult>;
+  updateRecoveredPassword: (password: string) => Promise<void>;
   user: User | null;
 };
 
@@ -37,6 +47,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState("");
+  const recoveryWasRequestedRef = useRef(isPasswordResetRouteRequested());
+  const recoveryWasRequested = recoveryWasRequestedRef.current;
+  const [passwordRecoveryStatus, setPasswordRecoveryStatus] =
+    useState<PasswordRecoveryStatus>(
+      recoveryWasRequested
+        ? isSupabaseConfigured
+          ? "checking"
+          : "invalid"
+        : "idle",
+    );
+  const passwordRecoveryStatusRef = useRef(passwordRecoveryStatus);
+
+  const updatePasswordRecoveryStatus = (status: PasswordRecoveryStatus) => {
+    passwordRecoveryStatusRef.current = status;
+    setPasswordRecoveryStatus(status);
+  };
 
   useEffect(() => {
     if (!supabase) {
@@ -45,31 +71,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let isMounted = true;
+    let recoveryCheckTimer: number | undefined;
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!isMounted) return;
       setSession(nextSession);
       setIsInitializing(false);
+      if (event === "PASSWORD_RECOVERY") {
+        updatePasswordRecoveryStatus(nextSession ? "ready" : "invalid");
+      } else if (
+        event === "SIGNED_OUT" &&
+        (passwordRecoveryStatusRef.current === "checking" ||
+          passwordRecoveryStatusRef.current === "ready")
+      ) {
+        updatePasswordRecoveryStatus("invalid");
+      }
     });
 
     void supabase.auth.getSession().then(({ data, error }) => {
       if (!isMounted) return;
 
       if (error) {
-        console.error("[auth] Initial session check failed", error);
+        console.error("[auth] Initial session check failed");
         setAuthError(getAuthErrorMessage(error));
       } else {
         setSession(data.session);
       }
       setIsInitializing(false);
+      if (recoveryWasRequested) {
+        recoveryCheckTimer = window.setTimeout(() => {
+          if (
+            isMounted &&
+            passwordRecoveryStatusRef.current === "checking"
+          ) {
+            updatePasswordRecoveryStatus("invalid");
+          }
+        }, 0);
+      }
     });
 
     return () => {
       isMounted = false;
+      if (recoveryCheckTimer !== undefined) window.clearTimeout(recoveryCheckTimer);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [recoveryWasRequested]);
 
   const requireClient = () => {
     if (!supabase) {
@@ -121,6 +168,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
     });
 
+  const requestPasswordReset = async (email: string) => {
+    const client = requireClient();
+    const { error } = await client.auth.resetPasswordForEmail(email, {
+      redirectTo: getPasswordResetRedirectUrl(),
+    });
+    if (error) throw error;
+  };
+
+  const updateRecoveredPassword = async (newPassword: string) => {
+    const client = requireClient();
+    if (passwordRecoveryStatusRef.current !== "ready") {
+      throw new PasswordRecoveryUnavailableError();
+    }
+
+    let submittedPassword = newPassword;
+    const updateRequest = client.auth.updateUser({ password: submittedPassword });
+    submittedPassword = "";
+    const { error } = await updateRequest;
+    if (error) throw error;
+
+    updatePasswordRecoveryStatus("completed");
+    try {
+      await client.auth.signOut({ scope: "local" });
+    } catch {
+      // The password update succeeded. Do not expose sign-out internals or retry it here.
+    } finally {
+      setSession(null);
+    }
+  };
+
   const clearLocalSession = async () => {
     setAuthError("");
     try {
@@ -139,10 +216,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isConfigured: isSupabaseConfigured,
     isInitializing,
     isSubmitting,
+    passwordRecoveryStatus,
+    requestPasswordReset,
     session,
     signIn,
     signOut,
     signUp,
+    updateRecoveredPassword,
     user: session?.user ?? null,
   };
 

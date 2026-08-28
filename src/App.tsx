@@ -7,6 +7,10 @@ import MyPlantEditPage from "./MyPlantEditPage";
 import MyPlantCareHistoryPage from "./MyPlantCareHistoryPage";
 import MyPlantCareRecordPage from "./MyPlantCareRecordPage";
 import MyPlantsPage from "./MyPlantsPage";
+import {
+  PasswordResetRequestPage,
+  PasswordResetUpdatePage,
+} from "./PasswordResetPage";
 import PlantListPage from "./PlantListPage";
 import { useAuth } from "./auth/AuthContext";
 import {
@@ -241,11 +245,12 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
 }
 
 type AppView = "home" | "diagnosis" | "plants" | "my-plants" | "account" | "auth";
+type AuthRouteMode = AuthMode | "forgot-password" | "reset-password";
 
 type AppRoute = {
   view: AppView;
-  authMode?: AuthMode;
-  authNotice?: "session-expired";
+  authMode?: AuthRouteMode;
+  authNotice?: "password-reset-completed" | "session-expired";
   accountDeletionCompleted?: boolean;
   careFromMyPlants?: boolean;
   careEdit?: boolean;
@@ -320,10 +325,17 @@ function readRoute(value: unknown): AppRoute {
     accountDeletionCompleted:
       view === "home" && accountDeletionCompleted === true ? true : undefined,
     authMode:
-      view === "auth" && authMode === "sign-up" ? "sign-up" : undefined,
+      view === "auth" &&
+      (authMode === "sign-up" ||
+        authMode === "forgot-password" ||
+        authMode === "reset-password")
+        ? authMode
+        : undefined,
     authNotice:
-      view === "auth" && authNotice === "session-expired"
-        ? "session-expired"
+      view === "auth" &&
+      (authNotice === "session-expired" ||
+        authNotice === "password-reset-completed")
+        ? authNotice
         : undefined,
     careFromMyPlants:
       view === "my-plants" &&
@@ -415,18 +427,43 @@ function readMyPlantsRouteFromLocation(): AppRoute | undefined {
   };
 }
 
+function readAuthRouteFromLocation(): AppRoute | undefined {
+  const view = new URLSearchParams(window.location.search).get("view");
+  if (view === "forgot-password") {
+    return { view: "auth", authMode: "forgot-password" };
+  }
+  if (view === "password-reset") {
+    return { view: "auth", authMode: "reset-password" };
+  }
+  return undefined;
+}
+
 function getInitialRoute() {
+  const authRoute = readAuthRouteFromLocation();
+  if (authRoute) return authRoute;
   const storedRoute = readRoute(window.history.state);
   if (storedRoute.userPlantId) return storedRoute;
   return readMyPlantsRouteFromLocation() ?? homeRoute;
 }
 
-function getRouteUrl(route: AppRoute) {
+function getRouteUrl(route: AppRoute, clearAuthCallback = false) {
   const url = new URL(window.location.href);
   url.searchParams.delete("view");
   url.searchParams.delete("userPlantId");
   url.searchParams.delete("recordId");
-  if (route.view === "my-plants" && route.userPlantId) {
+  if (clearAuthCallback) {
+    url.searchParams.delete("code");
+    url.searchParams.delete("flow_id");
+    url.searchParams.delete("error");
+    url.searchParams.delete("error_code");
+    url.searchParams.delete("error_description");
+    url.hash = "";
+  }
+  if (route.view === "auth" && route.authMode === "forgot-password") {
+    url.searchParams.set("view", "forgot-password");
+  } else if (route.view === "auth" && route.authMode === "reset-password") {
+    url.searchParams.set("view", "password-reset");
+  } else if (route.view === "my-plants" && route.userPlantId) {
     url.searchParams.set(
       "view",
       route.myPlantEdit
@@ -836,6 +873,7 @@ function App() {
     clearLocalSession,
     isInitializing: isAuthInitializing,
     isSubmitting: isAuthSubmitting,
+    passwordRecoveryStatus,
     signOut,
     user,
   } = useAuth();
@@ -862,6 +900,21 @@ function App() {
       photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.url));
   }, []);
 
+  useEffect(() => {
+    if (
+      route.view !== "auth" ||
+      route.authMode !== "reset-password" ||
+      passwordRecoveryStatus === "checking"
+    ) {
+      return;
+    }
+    window.history.replaceState(
+      { pruningAssistantRoute: route },
+      "",
+      getRouteUrl(route, true),
+    );
+  }, [passwordRecoveryStatus, route]);
+
   photosRef.current = photos;
 
   useEffect(() => {
@@ -874,10 +927,13 @@ function App() {
     setRoute(initialRoute);
 
     const handlePopState = (event: PopStateEvent) => {
+      const authRoute = readAuthRouteFromLocation();
       const storedRoute = readRoute(event.state);
-      let nextRoute = storedRoute.userPlantId
-        ? storedRoute
-        : readMyPlantsRouteFromLocation() ?? storedRoute;
+      let nextRoute =
+        authRoute ??
+        (storedRoute.userPlantId
+          ? storedRoute
+          : readMyPlantsRouteFromLocation() ?? storedRoute);
       const authState = authStateRef.current;
       if (
         !accountDeletionLockRef.current &&
@@ -952,10 +1008,12 @@ function App() {
   };
 
   const replaceRoute = (nextRoute: AppRoute) => {
+    const clearAuthCallback =
+      route.view === "auth" && route.authMode === "reset-password";
     window.history.replaceState(
       { pruningAssistantRoute: nextRoute },
       "",
-      getRouteUrl(nextRoute),
+      getRouteUrl(nextRoute, clearAuthCallback),
     );
     setRoute(nextRoute);
     window.scrollTo({ top: 0 });
@@ -976,6 +1034,11 @@ function App() {
   const consumeAccountDeletionCompletion = () => {
     if (!route.accountDeletionCompleted) return;
     replaceRoute({ ...route, accountDeletionCompleted: undefined });
+  };
+
+  const consumePasswordResetCompletion = () => {
+    if (route.authNotice !== "password-reset-completed") return;
+    replaceRoute({ ...route, authNotice: undefined });
   };
 
   const consumeMyPlantCompletion = () => {
@@ -1137,13 +1200,38 @@ function App() {
           onOpenPlants={() => navigateToView("plants")}
         />
       ) : route.view === "auth" ? (
-        <AuthPage
-          mode={route.authMode ?? "sign-in"}
-          onAuthenticated={finishAuthentication}
-          onBackHome={() => navigateToView("home")}
-          onModeChange={(authMode) => navigate({ view: "auth", authMode })}
-          sessionExpiredNotice={route.authNotice === "session-expired"}
-        />
+        route.authMode === "forgot-password" ? (
+          <PasswordResetRequestPage
+            onBackToLogin={() => navigate({ view: "auth" })}
+          />
+        ) : route.authMode === "reset-password" ? (
+          <PasswordResetUpdatePage
+            onBackToRequest={() =>
+              replaceRoute({ view: "auth", authMode: "forgot-password" })
+            }
+            onUpdated={() =>
+              replaceRoute({
+                view: "auth",
+                authNotice: "password-reset-completed",
+              })
+            }
+          />
+        ) : (
+          <AuthPage
+            mode={route.authMode ?? "sign-in"}
+            onAuthenticated={finishAuthentication}
+            onBackHome={() => navigateToView("home")}
+            onForgotPassword={() =>
+              navigate({ view: "auth", authMode: "forgot-password" })
+            }
+            onModeChange={(authMode) => navigate({ view: "auth", authMode })}
+            onPasswordResetNoticeConsumed={consumePasswordResetCompletion}
+            passwordResetCompletedNotice={
+              route.authNotice === "password-reset-completed"
+            }
+            sessionExpiredNotice={route.authNotice === "session-expired"}
+          />
+        )
       ) : route.view === "account" ? (
         <AccountSettingsPage
           email={user?.email}
