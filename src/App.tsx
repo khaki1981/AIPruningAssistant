@@ -12,11 +12,13 @@ import {
   PasswordResetUpdatePage,
 } from "./PasswordResetPage";
 import PlantListPage from "./PlantListPage";
+import PlantPhotoIdentificationPage from "./PlantPhotoIdentificationPage";
 import { useAuth } from "./auth/AuthContext";
 import {
   deleteCurrentAccount,
   type AccountDeletionFailureCode,
 } from "./data/accountDeletion";
+import { loadPlants } from "./data/loadPlants";
 
 type IconName =
   | "camera"
@@ -62,7 +64,13 @@ function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   );
 }
 
-type AppView = "home" | "plants" | "my-plants" | "account" | "auth";
+type AppView =
+  | "home"
+  | "plants"
+  | "photo-identification"
+  | "my-plants"
+  | "account"
+  | "auth";
 type AuthRouteMode = AuthMode | "forgot-password" | "reset-password";
 
 type AppRoute = {
@@ -85,6 +93,7 @@ type AppRoute = {
 };
 
 const homeRoute: AppRoute = { view: "home" };
+const availablePlantIds = new Set(loadPlants().map((plant) => plant.id));
 
 function readRoute(value: unknown): AppRoute {
   if (typeof value !== "object" || value === null) return homeRoute;
@@ -130,6 +139,7 @@ function readRoute(value: unknown): AppRoute {
   if (
     view !== "home" &&
     view !== "plants" &&
+    view !== "photo-identification" &&
     view !== "my-plants" &&
     view !== "account" &&
     view !== "auth"
@@ -400,10 +410,12 @@ function AppHeader({
 function HomePage({
   accountDeletionCompleted,
   onAccountDeletionMessageConsumed,
+  onOpenPhotoIdentification,
   onOpenPlants,
 }: {
   accountDeletionCompleted?: boolean;
   onAccountDeletionMessageConsumed: () => void;
+  onOpenPhotoIdentification: () => void;
   onOpenPlants: () => void;
 }) {
   const [showAccountDeletionCompleted] = useState(accountDeletionCompleted === true);
@@ -442,20 +454,13 @@ function HomePage({
           <span className="home-option__arrow" aria-hidden="true">→</span>
         </button>
 
-        <button
-          className="home-option home-option--disabled"
-          type="button"
-          disabled
-          aria-describedby="photo-search-description"
-        >
+        <button className="home-option" type="button" onClick={onOpenPhotoIdentification}>
           <span className="home-option__icon"><Icon name="camera" size={28} /></span>
           <span className="home-option__copy">
-            <span className="home-option__title-row">
-              <strong>写真から調べる</strong>
-              <small>準備中</small>
-            </span>
-            <span id="photo-search-description">写真から植物の候補を調べます。現在は利用できません。</span>
+            <strong>写真から調べる</strong>
+            <span>写真を1枚選び、植物名の候補を調べる準備をします。</span>
           </span>
+          <span className="home-option__arrow" aria-hidden="true">→</span>
         </button>
       </section>
     </main>
@@ -699,6 +704,7 @@ function App() {
         <HomePage
           accountDeletionCompleted={route.accountDeletionCompleted}
           onAccountDeletionMessageConsumed={consumeAccountDeletionCompletion}
+          onOpenPhotoIdentification={() => navigateToView("photo-identification")}
           onOpenPlants={() => navigateToView("plants")}
         />
       ) : route.view === "auth" ? (
@@ -734,6 +740,15 @@ function App() {
             sessionExpiredNotice={route.authNotice === "session-expired"}
           />
         )
+      ) : route.view === "photo-identification" ? (
+        <PlantPhotoIdentificationPage
+          availablePlantIds={availablePlantIds}
+          isAuthInitializing={isAuthInitializing}
+          onBackHome={() => navigateToView("home")}
+          onLogin={() => navigate({ view: "auth" })}
+          onViewPlant={(plantId) => navigate({ view: "plants", plantId })}
+          userId={user?.id}
+        />
       ) : route.view === "account" ? (
         <AccountSettingsPage
           email={user?.email}
