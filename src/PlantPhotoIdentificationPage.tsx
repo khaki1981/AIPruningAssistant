@@ -1,22 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
+import {
+  identifyPlantFromPhoto,
+  PlantIdentificationClientError,
+} from "./data/plantIdentification";
 import { matchPlantIdentificationCandidate } from "./data/plantIdentificationMappings";
 import {
   preparePlantIdentificationPhoto,
   releasePlantIdentificationPhoto,
   type PreparedPlantIdentificationPhoto,
 } from "./lib/plantIdentificationPhoto";
-import type { PlantIdentificationCandidate } from "./types/plantIdentification";
+import type {
+  PlantIdentificationCandidate,
+  PlantIdentificationUsage,
+} from "./types/plantIdentification";
 
 interface PlantIdentificationCandidateListProps {
   availablePlantIds: ReadonlySet<string>;
   candidates: readonly PlantIdentificationCandidate[];
+  isDisabled: boolean;
   onViewPlant: (plantId: string) => void;
 }
 
 export function PlantIdentificationCandidateList({
   availablePlantIds,
   candidates,
+  isDisabled,
   onViewPlant,
 }: PlantIdentificationCandidateListProps) {
   return (
@@ -47,7 +56,10 @@ export function PlantIdentificationCandidateList({
                 <span>候補 {index + 1}</span>
                 <strong>{plantId ? "剪定データ対応済み" : "剪定データ未対応"}</strong>
               </div>
-              <h3>{candidate.commonNames?.join("、") || "一般名の情報なし"}</h3>
+              <h3>
+                {candidate.commonNames.join("、") ||
+                  candidate.scientificNameWithoutAuthor}
+              </h3>
               <dl className="plant-identification-candidate__details">
                 <div>
                   <dt>学名</dt>
@@ -70,6 +82,7 @@ export function PlantIdentificationCandidateList({
                 <button
                   className="primary-button plant-identification-candidate__action"
                   type="button"
+                  disabled={isDisabled}
                   onClick={() => onViewPlant(plantId)}
                 >
                   植物の詳細を見る
@@ -96,8 +109,49 @@ interface PlantPhotoIdentificationPageProps {
   userId?: string;
 }
 
+type PlantIdentificationAccessBlock = Extract<
+  PlantIdentificationClientError["code"],
+  "AUTH_REQUIRED" | "FEATURE_NOT_AVAILABLE"
+>;
+
 function formatMegabytes(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)}MB`;
+}
+
+function getSubmissionStatusMessage(
+  submitError: PlantIdentificationClientError | undefined,
+  accessBlock: PlantIdentificationAccessBlock | undefined,
+  hasCandidates: boolean,
+  dailyLimitReached: boolean,
+) {
+  if (accessBlock === "AUTH_REQUIRED") {
+    return "ログイン状態を確認できないため、写真を送信できません。ログイン画面から再度ログインしてください。";
+  }
+  if (accessBlock === "FEATURE_NOT_AVAILABLE") {
+    return "このアカウントでは現在、写真を送信できません。";
+  }
+  if (dailyLimitReached) {
+    return "本日の写真判定回数の上限に達しているため送信できません。";
+  }
+  if (submitError?.retryable) {
+    return "同じ写真で再試行できます。Functionへ到達した再試行は、新たに1回として数えられる場合があります。";
+  }
+  if (submitError?.code === "FEATURE_NOT_AVAILABLE") {
+    return "このアカウントでは現在、写真を送信できません。";
+  }
+  if (
+    submitError?.category === "request" ||
+    submitError?.category === "not-identified"
+  ) {
+    return "写真を選び直すと、改めて候補を調べられます。";
+  }
+  if (submitError) {
+    return "現在はこの写真を再送信できません。";
+  }
+  if (hasCandidates) {
+    return "同じ写真を再判定すると、新たに1回として数えられます。";
+  }
+  return "写真はこのボタンを押したときだけPl@ntNetへ送信されます。";
 }
 
 function PlantPhotoIdentificationPage({
@@ -111,11 +165,46 @@ function PlantPhotoIdentificationPage({
   const [errorMessage, setErrorMessage] = useState<string>();
   const [isProcessing, setIsProcessing] = useState(false);
   const [photo, setPhoto] = useState<PreparedPlantIdentificationPhoto>();
-  const candidates: readonly PlantIdentificationCandidate[] = [];
+  const [candidates, setCandidates] = useState<
+    readonly PlantIdentificationCandidate[]
+  >([]);
+  const [accessBlock, setAccessBlock] =
+    useState<PlantIdentificationAccessBlock>();
+  const [dailyLimitReached, setDailyLimitReached] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] =
+    useState<PlantIdentificationClientError>();
+  const [usage, setUsage] = useState<PlantIdentificationUsage>();
   const inputRef = useRef<HTMLInputElement>(null);
+  const accessBlockRef = useRef<PlantIdentificationAccessBlock>();
+  const dailyLimitReachedRef = useRef(false);
   const operationRef = useRef(0);
   const photoRef = useRef<PreparedPlantIdentificationPhoto>();
   const processingRef = useRef(false);
+  const requestAbortRef = useRef<AbortController>();
+  const requestOperationRef = useRef(0);
+  const submittingRef = useRef(false);
+  const userIdRef = useRef(userId);
+
+  const updateAccessBlock = (
+    nextAccessBlock: PlantIdentificationAccessBlock | undefined,
+  ) => {
+    accessBlockRef.current = nextAccessBlock;
+    setAccessBlock(nextAccessBlock);
+  };
+
+  const updateDailyLimitReached = (isReached: boolean) => {
+    dailyLimitReachedRef.current = isReached;
+    setDailyLimitReached(isReached);
+  };
+
+  const clearIdentificationResults = () => {
+    setCandidates([]);
+    setUsage(undefined);
+    setSubmitError(undefined);
+    setHasSubmitted(false);
+  };
 
   const discardPhoto = () => {
     if (photoRef.current) {
@@ -128,7 +217,11 @@ function PlantPhotoIdentificationPage({
   useEffect(() => {
     return () => {
       operationRef.current += 1;
+      requestOperationRef.current += 1;
       processingRef.current = false;
+      submittingRef.current = false;
+      requestAbortRef.current?.abort();
+      requestAbortRef.current = undefined;
       if (photoRef.current) {
         releasePlantIdentificationPhoto(photoRef.current);
         photoRef.current = undefined;
@@ -137,12 +230,21 @@ function PlantPhotoIdentificationPage({
   }, []);
 
   useEffect(() => {
-    if (userId) return;
+    if (userIdRef.current === userId && userId) return;
+    userIdRef.current = userId;
     operationRef.current += 1;
+    requestOperationRef.current += 1;
     processingRef.current = false;
+    submittingRef.current = false;
+    requestAbortRef.current?.abort();
+    requestAbortRef.current = undefined;
     discardPhoto();
+    clearIdentificationResults();
+    updateAccessBlock(undefined);
+    updateDailyLimitReached(false);
     setErrorMessage(undefined);
     setIsProcessing(false);
+    setIsSubmitting(false);
   }, [userId]);
 
   const handlePhotoSelection = async (
@@ -150,11 +252,20 @@ function PlantPhotoIdentificationPage({
   ) => {
     const selectedFile = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
-    if (!selectedFile || !userId || processingRef.current) return;
+    if (
+      !selectedFile ||
+      !userId ||
+      accessBlockRef.current !== undefined ||
+      processingRef.current ||
+      submittingRef.current
+    ) {
+      return;
+    }
 
     const operation = operationRef.current + 1;
     operationRef.current = operation;
     discardPhoto();
+    clearIdentificationResults();
     setErrorMessage(undefined);
     processingRef.current = true;
     setIsProcessing(true);
@@ -183,10 +294,109 @@ function PlantPhotoIdentificationPage({
   };
 
   const chooseAnotherPhoto = () => {
-    if (processingRef.current) return;
+    if (
+      accessBlockRef.current !== undefined ||
+      processingRef.current ||
+      submittingRef.current
+    ) {
+      return;
+    }
     setErrorMessage(undefined);
     inputRef.current?.click();
   };
+
+  const handleSubmit = async () => {
+    if (
+      !photo ||
+      !userId ||
+      isProcessing ||
+      submittingRef.current ||
+      dailyLimitReachedRef.current ||
+      accessBlockRef.current !== undefined
+    ) {
+      return;
+    }
+
+    const submittedPhoto = photo;
+    const operation = requestOperationRef.current + 1;
+    const controller = new AbortController();
+    requestOperationRef.current = operation;
+    requestAbortRef.current = controller;
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    setCandidates([]);
+    setSubmitError(undefined);
+    setHasSubmitted(true);
+
+    try {
+      const result = await identifyPlantFromPhoto(
+        submittedPhoto.file,
+        controller.signal,
+      );
+      if (
+        requestOperationRef.current !== operation ||
+        photoRef.current !== submittedPhoto ||
+        userIdRef.current !== userId
+      ) {
+        return;
+      }
+      setCandidates(result.candidates);
+      setUsage(result.usage);
+      updateDailyLimitReached(result.usage.remainingCount === 0);
+    } catch (error) {
+      if (
+        requestOperationRef.current !== operation ||
+        photoRef.current !== submittedPhoto ||
+        userIdRef.current !== userId
+      ) {
+        return;
+      }
+
+      const clientError =
+        error instanceof PlantIdentificationClientError
+          ? error
+          : new PlantIdentificationClientError(
+              "UNKNOWN_ERROR",
+              "現在、写真判定を利用できません。時間を置いてお試しください。",
+              "unexpected",
+              false,
+            );
+      setCandidates([]);
+      setSubmitError(clientError);
+      setUsage(clientError.usage);
+      updateDailyLimitReached(
+        clientError.code === "DAILY_LIMIT_REACHED" ||
+          clientError.usage?.remainingCount === 0,
+      );
+      if (
+        clientError.code === "AUTH_REQUIRED" ||
+        clientError.code === "FEATURE_NOT_AVAILABLE"
+      ) {
+        updateAccessBlock(clientError.code);
+      }
+      if (clientError.code === "AUTH_REQUIRED") {
+        setUsage(undefined);
+        setErrorMessage(undefined);
+        discardPhoto();
+      }
+    } finally {
+      if (requestOperationRef.current === operation) {
+        requestAbortRef.current = undefined;
+        submittingRef.current = false;
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  const canSubmit = Boolean(
+    photo &&
+      userId &&
+      !isProcessing &&
+      !isSubmitting &&
+      !accessBlock &&
+      !dailyLimitReached &&
+      (!submitError || submitError.retryable),
+  );
 
   return (
     <main className="app-main plant-identification-page">
@@ -244,7 +454,7 @@ function PlantPhotoIdentificationPage({
               type="file"
               accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
               aria-describedby="photo-selection-description"
-              disabled={isProcessing}
+              disabled={isProcessing || isSubmitting || Boolean(accessBlock)}
               onChange={(event) => void handlePhotoSelection(event)}
             />
 
@@ -290,7 +500,7 @@ function PlantPhotoIdentificationPage({
                 <button
                   className="plant-identification-secondary-button"
                   type="button"
-                  disabled={isProcessing}
+                  disabled={isProcessing || isSubmitting || Boolean(accessBlock)}
                   onClick={chooseAnotherPhoto}
                 >
                   写真を選び直す
@@ -323,12 +533,99 @@ function PlantPhotoIdentificationPage({
                   </a>
                 </div>
               </div>
-              <button className="primary-button" type="button" disabled>
-                写真を送信して候補を調べる
+              <button
+                className="primary-button"
+                type="button"
+                disabled={!canSubmit}
+                onClick={() => void handleSubmit()}
+              >
+                {isSubmitting
+                  ? "植物の候補を調べています…"
+                  : "写真を送信して候補を調べる"}
               </button>
-              <p className="plant-identification-consent__status">
-                API接続は次の工程で実装します。
+              {isSubmitting ? (
+                <div className="plant-identification-submit-status" role="status">
+                  <span className="loading-spinner" aria-hidden="true" />
+                  <p>植物の候補を調べています。しばらくお待ちください。</p>
+                </div>
+              ) : (
+                <p className="plant-identification-consent__status">
+                  {getSubmissionStatusMessage(
+                    submitError,
+                    accessBlock,
+                    hasSubmitted && candidates.length > 0,
+                    dailyLimitReached,
+                  )}
+                </p>
+              )}
+            </section>
+          )}
+
+          {dailyLimitReached && (
+            <section
+              className="section-card plant-identification-state"
+              aria-labelledby="plant-identification-limit-title"
+              role="status"
+            >
+              <span className="alert-box__icon" aria-hidden="true">i</span>
+              <div>
+                <strong id="plant-identification-limit-title">
+                  本日の写真判定回数の上限に達しました
+                </strong>
+                <p>
+                  利用回数は日本時間の午前0時に日付が切り替わります。日付が変わった後はページを再読み込みしてください。
+                </p>
+              </div>
+            </section>
+          )}
+
+          {usage && (
+            <section
+              className="section-card plant-identification-usage"
+              aria-labelledby="plant-identification-usage-title"
+            >
+              <h2 id="plant-identification-usage-title">本日の利用回数</h2>
+              <p>
+                <strong>本日の写真判定：{usage.requestCount}／5回</strong>
+                <span>残り{usage.remainingCount}回</span>
               </p>
+              <small>このアプリで設定している本人向けの1日5回制限です。</small>
+            </section>
+          )}
+
+          {(submitError || accessBlock) && (
+            <section
+              className="auth-message auth-message--error plant-identification-submit-error"
+              role="alert"
+            >
+              <strong>写真判定を完了できませんでした</strong>
+              <p>
+                {accessBlock === "AUTH_REQUIRED"
+                  ? "ログイン状態を確認できませんでした。ログイン画面から再度ログインしてください。"
+                  : accessBlock === "FEATURE_NOT_AVAILABLE"
+                    ? "このアカウントでは現在、写真判定を利用できません。"
+                    : dailyLimitReached
+                      ? "本日の写真判定回数の上限に達しているため、再送信できません。"
+                      : submitError?.message}
+              </p>
+              {accessBlock === "AUTH_REQUIRED" && (
+                <button className="primary-button" type="button" onClick={onLogin}>
+                  ログイン画面へ
+                </button>
+              )}
+              {!accessBlock &&
+                (submitError?.category === "request" ||
+                  submitError?.category === "not-identified") &&
+                photo && (
+                  <button
+                    className="plant-identification-secondary-button"
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={chooseAnotherPhoto}
+                  >
+                    写真を選び直す
+                  </button>
+                )}
             </section>
           )}
 
@@ -336,6 +633,7 @@ function PlantPhotoIdentificationPage({
             <PlantIdentificationCandidateList
               availablePlantIds={availablePlantIds}
               candidates={candidates}
+              isDisabled={isSubmitting}
               onViewPlant={onViewPlant}
             />
           )}

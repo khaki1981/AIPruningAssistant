@@ -3030,7 +3030,9 @@ textarea:disabled {
 .plant-identification-consent,
 .plant-identification-candidates,
 .plant-identification-login,
-.plant-identification-state {
+.plant-identification-state,
+.plant-identification-submit-error,
+.plant-identification-usage {
   min-width: 0;
   margin-top: 18px;
 }
@@ -3173,6 +3175,11 @@ textarea:disabled {
   box-shadow: var(--focus-ring);
 }
 
+.plant-identification-secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .plant-identification-consent .alert-box {
   grid-template-columns: 26px minmax(0, 1fr);
   overflow-wrap: anywhere;
@@ -3196,6 +3203,44 @@ textarea:disabled {
   cursor: not-allowed;
 }
 
+.plant-identification-submit-status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-top: 14px;
+  gap: 10px;
+  color: var(--color-text-muted);
+}
+
+.plant-identification-submit-status p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.plant-identification-usage h2 {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: 1.05rem;
+}
+
+.plant-identification-usage p {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 12px 0 5px;
+  gap: 6px 16px;
+}
+
+.plant-identification-usage p span,
+.plant-identification-usage small {
+  color: var(--color-text-muted);
+}
+
+.plant-identification-submit-error .primary-button,
+.plant-identification-submit-error .plant-identification-secondary-button {
+  width: 100%;
+  margin-top: 12px;
+}
+
 .plant-identification-candidate-list {
   display: grid;
   min-width: 0;
@@ -3212,6 +3257,7 @@ textarea:disabled {
 
 .plant-identification-candidate__heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -3237,6 +3283,10 @@ textarea:disabled {
 .plant-identification-candidate__action {
   min-height: 50px;
   margin-top: 16px;
+}
+
+.plant-identification-candidate__action:disabled {
+  cursor: not-allowed;
 }
 
 .plant-identification-candidate__unsupported {
@@ -3298,7 +3348,9 @@ textarea:disabled {
   }
 
   .plant-identification-secondary-button,
-  .plant-identification-login .primary-button {
+  .plant-identification-login .primary-button,
+  .plant-identification-submit-error .primary-button,
+  .plant-identification-submit-error .plant-identification-secondary-button {
     width: auto;
     min-width: 240px;
     justify-self: start;
