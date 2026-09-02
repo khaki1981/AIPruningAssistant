@@ -424,18 +424,21 @@ async function convertHttpError(
 
   if (context.status === 401) return createClientError("AUTH_REQUIRED");
   if (context.status === 404) return createClientError("SERVICE_UNAVAILABLE");
-  if (!isRecord(payload) || !isFunctionErrorCode(payload.code)) {
-    return createClientError(
-      typeof payload === "object" && payload !== null && "code" in payload
-        ? "UNKNOWN_ERROR"
-        : "SERVICE_UNAVAILABLE",
-    );
-  }
-  if (functionErrorStatuses[payload.code] !== context.status) {
+  if (!isRecord(payload) || !isRecord(payload.error)) {
     return createClientError("SERVICE_UNAVAILABLE");
   }
 
-  return createClientError(payload.code, readUsage(payload.usage));
+  const code = payload.error.code;
+  if (!isFunctionErrorCode(code)) {
+    return createClientError(
+      typeof code === "string" ? "UNKNOWN_ERROR" : "SERVICE_UNAVAILABLE",
+    );
+  }
+  if (functionErrorStatuses[code] !== context.status) {
+    return createClientError("SERVICE_UNAVAILABLE");
+  }
+
+  return createClientError(code, readUsage(payload.usage));
 }
 
 async function convertInvocationError(
