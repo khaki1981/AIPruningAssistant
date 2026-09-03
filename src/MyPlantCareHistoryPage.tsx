@@ -425,7 +425,7 @@ function MyPlantCareHistoryPage({
           <h1 id="plant-history-login-title">過去の記録を見るにはログインが必要です</h1>
           <p>ログイン後、自分の植物からもう一度記録一覧を開いてください。</p>
           <button className="primary-button" type="button" onClick={onLogin}>
-            ログイン・新規登録へ
+            ログインへ
           </button>
         </section>
       </main>

@@ -12,13 +12,8 @@ export function getAuthErrorMessage(error: unknown) {
       return "メールアドレスまたはパスワードが正しくありません。";
     case "email_not_confirmed":
       return "メールアドレスの確認が完了していません。確認メール内のリンクを開いてください。";
-    case "user_already_exists":
-    case "email_exists":
-      return "このメールアドレスは登録済みの可能性があります。ログインをお試しください。";
     case "weak_password":
       return "パスワードが要件を満たしていません。より長く推測されにくい文字列を設定してください。";
-    case "signup_disabled":
-      return "現在、新規登録を受け付けていません。";
     case "over_request_rate_limit":
     case "over_email_send_rate_limit":
       return "短時間に操作が集中しています。しばらく待ってからお試しください。";

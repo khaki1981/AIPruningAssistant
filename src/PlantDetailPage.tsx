@@ -354,8 +354,8 @@ function PlantDetailPage({
         {showLoginNotice && !userId && (
           <div className="plant-registration__notice" role="note">
             <strong>登録にはログインが必要です</strong>
-            <p>ログインまたは新規登録後に、もう一度この植物を登録してください。</p>
-            <button type="button" onClick={onLogin}>ログイン・新規登録へ</button>
+            <p>ログイン後に、もう一度この植物を登録してください。</p>
+            <button type="button" onClick={onLogin}>ログインへ</button>
           </div>
         )}
         {registrationMessage && (

@@ -233,7 +233,7 @@ function MyPlantEditPage({
           <h1 id="my-plant-edit-login-title">自分の植物を編集するにはログインが必要です</h1>
           <p>ログイン後、自分の植物一覧からもう一度編集画面を開いてください。</p>
           <button className="primary-button" type="button" onClick={onLogin}>
-            ログイン・新規登録へ
+            ログインへ
           </button>
         </section>
       </main>

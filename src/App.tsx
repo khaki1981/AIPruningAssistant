@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import AccountSettingsPage from "./AccountSettingsPage";
 import AuthPage from "./AuthPage";
-import type { AuthMode } from "./AuthPage";
 import MyPlantEditPage from "./MyPlantEditPage";
 import MyPlantCareHistoryPage from "./MyPlantCareHistoryPage";
 import MyPlantCareRecordPage from "./MyPlantCareRecordPage";
@@ -71,7 +70,7 @@ type AppView =
   | "my-plants"
   | "account"
   | "auth";
-type AuthRouteMode = AuthMode | "forgot-password" | "reset-password";
+type AuthRouteMode = "forgot-password" | "reset-password";
 
 type AppRoute = {
   view: AppView;
@@ -153,9 +152,7 @@ function readRoute(value: unknown): AppRoute {
       view === "home" && accountDeletionCompleted === true ? true : undefined,
     authMode:
       view === "auth" &&
-      (authMode === "sign-up" ||
-        authMode === "forgot-password" ||
-        authMode === "reset-password")
+      (authMode === "forgot-password" || authMode === "reset-password")
         ? authMode
         : undefined,
     authNotice:
@@ -397,7 +394,7 @@ function AppHeader({
                 aria-current={activeView === "auth" ? "page" : undefined}
                 onClick={() => onNavigate("auth")}
               >
-                ログイン・新規登録
+                ログイン
               </button>
             )}
           </div>
@@ -726,13 +723,11 @@ function App() {
           />
         ) : (
           <AuthPage
-            mode={route.authMode ?? "sign-in"}
             onAuthenticated={finishAuthentication}
             onBackHome={() => navigateToView("home")}
             onForgotPassword={() =>
               navigate({ view: "auth", authMode: "forgot-password" })
             }
-            onModeChange={(authMode) => navigate({ view: "auth", authMode })}
             onPasswordResetNoticeConsumed={consumePasswordResetCompletion}
             passwordResetCompletedNotice={
               route.authNotice === "password-reset-completed"

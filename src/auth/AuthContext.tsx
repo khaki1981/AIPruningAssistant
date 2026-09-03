@@ -19,10 +19,6 @@ import {
   type PasswordRecoveryStatus,
 } from "./passwordReset";
 
-type SignUpResult = {
-  requiresEmailConfirmation: boolean;
-};
-
 type AuthContextValue = {
   authError: string;
   clearLocalSession: () => Promise<void>;
@@ -35,7 +31,6 @@ type AuthContextValue = {
   session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  signUp: (email: string, password: string) => Promise<SignUpResult>;
   updateRecoveredPassword: (password: string) => Promise<void>;
   user: User | null;
 };
@@ -142,18 +137,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = (email: string, password: string) =>
-    runAuthRequest(async () => {
-      const client = requireClient();
-      const { data, error } = await client.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: window.location.origin },
-      });
-      if (error) throw error;
-      return { requiresEmailConfirmation: data.session === null };
-    });
-
   const signIn = (email: string, password: string) =>
     runAuthRequest(async () => {
       const client = requireClient();
@@ -221,7 +204,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     signIn,
     signOut,
-    signUp,
     updateRecoveredPassword,
     user: session?.user ?? null,
   };

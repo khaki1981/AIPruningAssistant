@@ -130,7 +130,7 @@ function AccountSettingsPage({
           <h1 id="account-login-title">アカウント設定にはログインが必要です</h1>
           <p>ログイン後、もう一度アカウント設定を開いてください。</p>
           <button className="primary-button" type="button" onClick={onLogin}>
-            ログイン・新規登録へ
+            ログインへ
           </button>
         </section>
       </main>
