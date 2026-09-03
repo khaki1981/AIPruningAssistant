@@ -3007,6 +3007,304 @@ textarea:disabled {
   box-shadow: var(--shadow-card);
 }
 
+.plant-identification-page {
+  min-width: 0;
+}
+
+.plant-identification-page__intro {
+  min-height: 260px;
+}
+
+.plant-identification-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.plant-identification-photo,
+.plant-identification-consent,
+.plant-identification-candidates,
+.plant-identification-login,
+.plant-identification-state,
+.plant-identification-submit-error,
+.plant-identification-usage {
+  min-width: 0;
+  margin-top: 18px;
+}
+
+.plant-identification-photo__input {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-text-muted);
+  background: var(--color-surface-warm);
+  font: inherit;
+}
+
+.plant-identification-photo__input::file-selector-button {
+  min-height: 42px;
+  margin-right: 12px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius-small);
+  color: white;
+  background: var(--color-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.plant-identification-photo__input:focus-visible {
+  outline: 0;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.plant-identification-photo__input:disabled,
+.plant-identification-photo__input:disabled::file-selector-button {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.plant-identification-photo__notice,
+.plant-identification-consent__status {
+  margin: 12px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+.plant-identification-processing,
+.plant-identification-state {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.plant-identification-processing {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: var(--radius-small);
+  background: var(--color-primary-light);
+}
+
+.plant-identification-processing p,
+.plant-identification-state p {
+  margin: 3px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.plant-identification-photo .auth-message {
+  margin: 16px 0 0;
+}
+
+.plant-identification-preview {
+  display: grid;
+  min-width: 0;
+  margin-top: 18px;
+  gap: 14px;
+}
+
+.plant-identification-preview img {
+  display: block;
+  width: 100%;
+  max-height: 520px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: white;
+  object-fit: contain;
+}
+
+.plant-identification-preview dl,
+.plant-identification-candidate__details {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  gap: 8px;
+}
+
+.plant-identification-preview dl > div,
+.plant-identification-candidate__details > div {
+  display: grid;
+  min-width: 0;
+  padding: 10px 12px;
+  grid-template-columns: minmax(72px, 0.35fr) minmax(0, 1fr);
+  gap: 10px;
+  border-radius: var(--radius-small);
+  background: var(--color-surface-warm);
+}
+
+.plant-identification-preview dt,
+.plant-identification-candidate__details dt {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.plant-identification-preview dd,
+.plant-identification-candidate__details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.plant-identification-secondary-button {
+  min-height: 48px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-control);
+  color: var(--color-primary-strong);
+  background: white;
+  font: inherit;
+  font-weight: 700;
+}
+
+.plant-identification-secondary-button:hover:not(:disabled),
+.plant-identification-secondary-button:focus-visible {
+  outline: 0;
+  background: var(--color-primary-light);
+  box-shadow: var(--focus-ring);
+}
+
+.plant-identification-secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.plant-identification-consent .alert-box {
+  grid-template-columns: 26px minmax(0, 1fr);
+  overflow-wrap: anywhere;
+}
+
+.plant-identification-consent .alert-box p {
+  margin: 0;
+}
+
+.plant-identification-consent .alert-box p + p,
+.plant-identification-consent .alert-box a {
+  display: block;
+  margin-top: 10px;
+}
+
+.plant-identification-consent .primary-button {
+  margin-top: 18px;
+}
+
+.plant-identification-consent .primary-button:disabled {
+  cursor: not-allowed;
+}
+
+.plant-identification-submit-status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-top: 14px;
+  gap: 10px;
+  color: var(--color-text-muted);
+}
+
+.plant-identification-submit-status p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.plant-identification-usage h2 {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: 1.05rem;
+}
+
+.plant-identification-usage p {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 12px 0 5px;
+  gap: 6px 16px;
+}
+
+.plant-identification-usage p span,
+.plant-identification-usage small {
+  color: var(--color-text-muted);
+}
+
+.plant-identification-submit-error .primary-button,
+.plant-identification-submit-error .plant-identification-secondary-button {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.plant-identification-candidate-list {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.plant-identification-candidate {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-warm);
+}
+
+.plant-identification-candidate__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+}
+
+.plant-identification-candidate__heading strong {
+  color: var(--color-primary-strong);
+  text-align: right;
+}
+
+.plant-identification-candidate h3 {
+  margin: 12px 0;
+  color: var(--color-text-strong);
+  overflow-wrap: anywhere;
+}
+
+.plant-identification-candidate__details > div {
+  background: white;
+}
+
+.plant-identification-candidate__action {
+  min-height: 50px;
+  margin-top: 16px;
+}
+
+.plant-identification-candidate__action:disabled {
+  cursor: not-allowed;
+}
+
+.plant-identification-candidate__unsupported {
+  margin: 16px 0 0;
+  padding: 11px 12px;
+  border-radius: var(--radius-small);
+  color: var(--color-text-muted);
+  background: white;
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+@media (max-width: 400px) {
+  .plant-identification-page__intro h1 {
+    font-size: clamp(1.85rem, 8vw, 2rem);
+  }
+}
+
 @media (min-width: 600px) {
   .app-main {
     width: min(1120px, calc(100% - 40px));
@@ -3042,6 +3340,20 @@ textarea:disabled {
 
   .home-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plant-identification-preview dl,
+  .plant-identification-candidate__details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plant-identification-secondary-button,
+  .plant-identification-login .primary-button,
+  .plant-identification-submit-error .primary-button,
+  .plant-identification-submit-error .plant-identification-secondary-button {
+    width: auto;
+    min-width: 240px;
+    justify-self: start;
   }
 
   .plant-detail__terms {
