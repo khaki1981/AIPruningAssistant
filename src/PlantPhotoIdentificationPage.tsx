@@ -427,7 +427,7 @@ function PlantPhotoIdentificationPage({
             <p>写真判定は本人限定で提供する予定です。写真を選ぶ前にログインしてください。</p>
           </div>
           <button className="primary-button" type="button" onClick={onLogin}>
-            ログイン・新規登録へ
+            ログインへ
           </button>
         </section>
       ) : (

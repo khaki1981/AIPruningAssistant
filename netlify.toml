@@ -1,5 +1,5 @@
 [context.production.environment]
-  VITE_PLANT_DATA_VISIBILITY = "verified"
+  VITE_PLANT_DATA_VISIBILITY = "all"
 
 [context.deploy-preview.environment]
   VITE_PLANT_DATA_VISIBILITY = "all"

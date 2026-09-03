@@ -101,7 +101,7 @@ function MyPlantsPage({
           <h1 id="my-plants-login-title">自分の植物を見るにはログインが必要です</h1>
           <p>ログインすると、登録した植物を端末を変えても確認できます。</p>
           <button className="primary-button" type="button" onClick={onLogin}>
-            ログイン・新規登録へ
+            ログインへ
           </button>
         </section>
       </main>

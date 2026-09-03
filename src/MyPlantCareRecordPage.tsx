@@ -1206,7 +1206,7 @@ function MyPlantCareRecordPage({
           <h1 id="plant-care-login-title">{isEditing ? "記録の編集" : "記録の保存"}にはログインが必要です</h1>
           <p>ログイン後、自分の植物からもう一度記録画面を開いてください。</p>
           <button className="primary-button" type="button" onClick={onLogin}>
-            ログイン・新規登録へ
+            ログインへ
           </button>
         </section>
       </main>
