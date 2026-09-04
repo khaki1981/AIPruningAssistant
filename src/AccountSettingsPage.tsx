@@ -1,11 +1,18 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { getAuthenticatedPasswordUpdateErrorMessage } from "./auth/authErrors";
+import {
+  getPasswordRequirementError,
+  minimumPasswordLength,
+} from "./auth/passwordPolicy";
 import type { AccountDeletionFailureCode } from "./data/accountDeletion";
 
 interface AccountSettingsPageProps {
   email?: string;
   isAuthInitializing: boolean;
   isDeleting: boolean;
+  isPasswordUpdating: boolean;
   onBackHome: () => void;
+  onChangePassword: (password: string) => Promise<void>;
   onDeleteAccount: (password: string) => Promise<AccountDeletionFailureCode | null>;
   onLogin: () => void;
 }
@@ -43,7 +50,9 @@ function AccountSettingsPage({
   email,
   isAuthInitializing,
   isDeleting,
+  isPasswordUpdating,
   onBackHome,
+  onChangePassword,
   onDeleteAccount,
   onLogin,
 }: AccountSettingsPageProps) {
@@ -52,15 +61,22 @@ function AccountSettingsPage({
   const [isAcknowledged, setIsAcknowledged] = useState(false);
   const [validationError, setValidationError] = useState("");
   const [deletionError, setDeletionError] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirmation, setNewPasswordConfirmation] = useState("");
+  const [passwordUpdateError, setPasswordUpdateError] = useState("");
+  const [passwordUpdateSuccess, setPasswordUpdateSuccess] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const newPasswordRef = useRef<HTMLInputElement>(null);
   const isMountedRef = useRef(true);
+  const passwordUpdateLockRef = useRef(false);
 
   useEffect(() => {
     isMountedRef.current = true;
     headingRef.current?.focus();
     return () => {
       isMountedRef.current = false;
+      passwordUpdateLockRef.current = false;
     };
   }, []);
 
@@ -79,6 +95,52 @@ function AccountSettingsPage({
     if (isDeleting) return;
     clearForm();
     setIsConfirming(false);
+  };
+
+  const clearPasswordUpdateMessages = () => {
+    setPasswordUpdateError("");
+    setPasswordUpdateSuccess(false);
+  };
+
+  const handlePasswordUpdate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (passwordUpdateLockRef.current || isPasswordUpdating || isDeleting) return;
+
+    clearPasswordUpdateMessages();
+    if (!newPassword || !newPasswordConfirmation) {
+      setPasswordUpdateError("新しいパスワードと確認用パスワードを入力してください。");
+      newPasswordRef.current?.focus();
+      return;
+    }
+    const passwordRequirementError = getPasswordRequirementError(newPassword);
+    if (passwordRequirementError) {
+      setPasswordUpdateError(passwordRequirementError);
+      newPasswordRef.current?.focus();
+      return;
+    }
+    if (newPassword !== newPasswordConfirmation) {
+      setPasswordUpdateError("新しいパスワードと確認用パスワードが一致しません。");
+      return;
+    }
+
+    passwordUpdateLockRef.current = true;
+    let submittedPassword = newPassword;
+    setNewPassword("");
+    setNewPasswordConfirmation("");
+    try {
+      const updateRequest = onChangePassword(submittedPassword);
+      submittedPassword = "";
+      await updateRequest;
+      if (!isMountedRef.current) return;
+      setPasswordUpdateSuccess(true);
+    } catch (error) {
+      submittedPassword = "";
+      if (!isMountedRef.current) return;
+      setPasswordUpdateError(getAuthenticatedPasswordUpdateErrorMessage(error));
+      newPasswordRef.current?.focus();
+    } finally {
+      passwordUpdateLockRef.current = false;
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -155,6 +217,78 @@ function AccountSettingsPage({
           <h1 id="account-settings-title" ref={headingRef} tabIndex={-1}>アカウント設定</h1>
           <p>{email} でログインしています。</p>
         </div>
+      </section>
+
+      <section className="section-card account-password-card" aria-labelledby="account-password-title">
+        <div className="section-card__heading">
+          <span>SECURITY</span>
+          <h2 id="account-password-title">パスワードを変更する</h2>
+          <p>ログインに使用する新しいパスワードを設定します。</p>
+        </div>
+
+        <form
+          className="account-password-form"
+          onSubmit={(event) => void handlePasswordUpdate(event)}
+          noValidate
+        >
+          <div className="field">
+            <label htmlFor="account-new-password">新しいパスワード</label>
+            <input
+              id="account-new-password"
+              ref={newPasswordRef}
+              type="password"
+              autoComplete="new-password"
+              aria-describedby="account-password-requirement"
+              value={newPassword}
+              onChange={(event) => {
+                setNewPassword(event.target.value);
+                clearPasswordUpdateMessages();
+              }}
+              disabled={isPasswordUpdating || isDeleting}
+            />
+            <small id="account-password-requirement">
+              {minimumPasswordLength}文字以上で入力してください。
+            </small>
+          </div>
+
+          <div className="field">
+            <label htmlFor="account-new-password-confirmation">
+              新しいパスワード（確認）
+            </label>
+            <input
+              id="account-new-password-confirmation"
+              type="password"
+              autoComplete="new-password"
+              value={newPasswordConfirmation}
+              onChange={(event) => {
+                setNewPasswordConfirmation(event.target.value);
+                clearPasswordUpdateMessages();
+              }}
+              disabled={isPasswordUpdating || isDeleting}
+            />
+          </div>
+
+          {passwordUpdateError && (
+            <div className="auth-message auth-message--error account-password-form__message" role="alert">
+              <strong>パスワードを変更できませんでした</strong>
+              <p>{passwordUpdateError}</p>
+            </div>
+          )}
+          {passwordUpdateSuccess && (
+            <div className="auth-message auth-message--success account-password-form__message" role="status">
+              <strong>パスワードを変更しました</strong>
+              <p>次回から新しいパスワードでログインしてください。</p>
+            </div>
+          )}
+
+          <button
+            className="primary-button account-password-form__submit"
+            type="submit"
+            disabled={isPasswordUpdating || isDeleting}
+          >
+            {isPasswordUpdating ? "変更しています…" : "パスワードを変更する"}
+          </button>
+        </form>
       </section>
 
       <section className="section-card account-deletion-card" aria-labelledby="account-deletion-title">

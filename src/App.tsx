@@ -471,6 +471,7 @@ function App() {
     isSubmitting: isAuthSubmitting,
     passwordRecoveryStatus,
     signOut,
+    updatePassword,
     user,
   } = useAuth();
   const [route, setRoute] = useState<AppRoute>(() => getInitialRoute());
@@ -749,7 +750,9 @@ function App() {
           email={user?.email}
           isAuthInitializing={isAuthInitializing}
           isDeleting={isAccountDeletionInProgress}
+          isPasswordUpdating={isAuthSubmitting}
           onBackHome={() => navigateToView("home")}
+          onChangePassword={updatePassword}
           onDeleteAccount={handleDeleteAccount}
           onLogin={() => navigate({ view: "auth" })}
         />

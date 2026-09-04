@@ -31,6 +31,7 @@ type AuthContextValue = {
   session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
   updateRecoveredPassword: (password: string) => Promise<void>;
   user: User | null;
 };
@@ -121,15 +122,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return supabase;
   };
 
-  const runAuthRequest = async <T,>(request: () => Promise<T>) => {
+  const runAuthRequest = async <T,>(
+    request: () => Promise<T>,
+    storeError = true,
+  ) => {
     setAuthError("");
     setIsSubmitting(true);
     try {
       return await request();
     } catch (error) {
       if (!(error instanceof Error && error.message === supabaseConfigurationMessage)) {
-        console.error("[auth] Supabase request failed", error);
-        setAuthError(getAuthErrorMessage(error));
+        console.error("[auth] Supabase request failed");
+        if (storeError) setAuthError(getAuthErrorMessage(error));
       }
       throw error;
     } finally {
@@ -150,6 +154,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await client.auth.signOut({ scope: "local" });
       if (error) throw error;
     });
+
+  const updatePassword = (password: string) =>
+    runAuthRequest(async () => {
+      const client = requireClient();
+      const updateRequest = client.auth.updateUser({ password });
+      password = "";
+      const { error } = await updateRequest;
+      if (error) throw error;
+    }, false);
 
   const requestPasswordReset = async (email: string) => {
     const client = requireClient();
@@ -204,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     signIn,
     signOut,
+    updatePassword,
     updateRecoveredPassword,
     user: session?.user ?? null,
   };
